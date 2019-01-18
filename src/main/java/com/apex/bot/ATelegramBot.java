@@ -34,7 +34,6 @@ public abstract class ATelegramBot extends TelegramLongPollingBot {
     ATelegramBot(String token, String botname){
         this.token = token;
         this.botname = botname;
-
     }
 
     private String token;
