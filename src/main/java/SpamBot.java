@@ -29,8 +29,8 @@ import org.slf4j.LoggerFactory;
 
 public class SpamBot {
 
-    private static final String BOT_TOKEN = "664087722:AAFWm9kCQ0pIthEo3Kprq3P1EHTnT1BP5rQ";
-    private static final String BOT_NAME = "ApexSpamBot";
+    private static final String BOT_TOKEN = "672381625:AAFDAgp8rDSjR_yLBFEPqg0KWOs6fStNXHw";
+    private static final String BOT_NAME = "SpamBot";
     private static final Logger log = LoggerFactory.getLogger(SpamBot.class);
 
     public static void main(String[] args){
