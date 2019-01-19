@@ -47,37 +47,41 @@ public class TelegramMessageHandler extends ATelegramBot {
     @Override
     @SuppressWarnings("unchecked")
     public void onUpdateReceived(Update update) {
-
-        if(update.getMessage().getNewChatMembers() != null){
-            DB database = DBMaker.fileDB("file.db").checksumHeaderBypass().make();
-            ConcurrentMap userMap = database.hashMap("user").createOrOpen();
-            for (User user : update.getMessage().getNewChatMembers()){
-                userMap.put(user.getId(), Instant.now().getEpochSecond());
+        try {
+            if (update.getMessage().getNewChatMembers() != null) {
+                DB database = DBMaker.fileDB("file.db").checksumHeaderBypass().make();
+                ConcurrentMap userMap = database.hashMap("user").createOrOpen();
+                for (User user : update.getMessage().getNewChatMembers()) {
+                    userMap.put(user.getId(), Instant.now().getEpochSecond());
+                }
+                database.close();
+                log.info("Added User");
             }
-            database.close();
-            log.info("Added User");
-        }
 
-        if(update.hasMessage()){
-            deleteLinks.runStrategy(update).ifPresent(delete -> {
-                try {
-                    execute(delete);
-                    log.info("Deleted Link");
-                } catch (TelegramApiException e) {
-                    log.error("Failed to delete Link" + e.getMessage());
-                }
-            });
-        }
+            if (update.hasMessage()) {
+                deleteLinks.runStrategy(update).ifPresent(delete -> {
+                    try {
+                        execute(delete);
+                        log.info("Deleted Link");
+                    } catch (TelegramApiException e) {
+                        log.error("Failed to delete Link" + e.getMessage());
+                    }
+                });
+            }
 
-        if(update.getMessage().hasDocument()){
-            deleteFile.runStrategy(update).ifPresent(delete -> {
-                try {
-                    execute(delete);
-                    log.info("Deleted File");
-                } catch (TelegramApiException e) {
-                    log.error("Failed to delete File" + e.getMessage());
-                }
-            });
+            if (update.getMessage().hasDocument()) {
+                deleteFile.runStrategy(update).ifPresent(delete -> {
+                    try {
+                        execute(delete);
+                        log.info("Deleted File");
+                    } catch (TelegramApiException e) {
+                        log.error("Failed to delete File" + e.getMessage());
+                    }
+                });
+            }
+        } catch (Exception e) {
+            log.error("Exception caught");
+            log.error(e.getMessage());
         }
     }
 }
