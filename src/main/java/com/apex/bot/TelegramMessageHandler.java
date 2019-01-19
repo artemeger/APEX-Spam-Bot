@@ -24,28 +24,14 @@
 
 package com.apex.bot;
 
-import org.telegram.telegrambots.meta.api.methods.updatingmessages.DeleteMessage;
-import org.telegram.telegrambots.meta.api.objects.Document;
+import com.apex.strategy.DeleteFileStrategy;
+import com.apex.strategy.IStrategy;
 import org.telegram.telegrambots.meta.api.objects.Update;
 import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 
 public class TelegramMessageHandler extends ATelegramBot {
 
-    private static final String MP3_MIME = "audio/mp3";
-    private static final String MP4_MIME = "video/mp4";
-    private static final String MPEG_MIME = "video/mpeg";
-    private static final String PDF_MIME= "application/pdf";
-    private static final String PNG_MIME = "image/png";
-    private static final String JPEG_MIME = "image/jpeg";
-    private static final String GIF_MIME = "image/gif";
-    private static final String MP3 = ".mp3";
-    private static final String MPEG = ".mpeg";
-    private static final String MP4 = ".mp4";
-    private static final String PDF= ".pdf";
-    private static final String PNG = ".png";
-    private static final String JPEG = ".jpeg";
-    private static final String JPG = ".jpg";
-    private static final String GIF = ".gif";
+    private IStrategy deleteFile = new DeleteFileStrategy();
 
     public TelegramMessageHandler(String token, String botname) {
         super(token, botname);
@@ -53,24 +39,15 @@ public class TelegramMessageHandler extends ATelegramBot {
 
     @Override
     public void onUpdateReceived(Update update) {
-        int id = update.getMessage().getMessageId();
         if(update.getMessage().hasDocument()){
-            Document doc  = update.getMessage().getDocument();
-            String mimeName = doc.getMimeType();
-            String fileName = doc.getFileName();
-            if(!(mimeName.equals(MP3_MIME) || mimeName.equals(MP4_MIME) || mimeName.equals(MPEG_MIME)
-            || mimeName.equals(PDF_MIME) || mimeName.equals(PNG_MIME) || mimeName.equals(JPEG_MIME)
-            || mimeName.equals(GIF_MIME)) || !(fileName.endsWith(MP3) || fileName.endsWith(MP4)
-            || fileName.endsWith(MPEG) || fileName.endsWith(PDF) || fileName.endsWith(PNG)
-            || fileName.endsWith(JPEG) || fileName.endsWith(GIF) || fileName.endsWith(JPG))){
-                log.info(String.valueOf(id));
-                DeleteMessage delete = new DeleteMessage(update.getMessage().getChatId(), id);
+
+            deleteFile.runStrategy(update).ifPresent(delete -> {
                 try {
                     execute(delete);
                 } catch (TelegramApiException e) {
                     log.error("Failed to delete message" + e.getMessage());
                 }
-            }
+            });
         }
     }
 }
