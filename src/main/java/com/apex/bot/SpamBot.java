@@ -22,8 +22,8 @@
  * SOFTWARE.
  */
 
-import com.apex.bot.TelegramMessageHandler;
-import com.apex.bot.TelegramSessionManager;
+package com.apex.bot;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

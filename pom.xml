@@ -23,7 +23,7 @@
                 <configuration>
                     <archive>
                         <manifest>
-                            <mainClass>com.apex.SpamBot</mainClass>
+                            <mainClass>com.apex.bot.SpamBot</mainClass>
                         </manifest>
                     </archive>
                 </configuration>
