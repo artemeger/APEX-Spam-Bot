@@ -1,5 +1,5 @@
 # APEX-Spam-Bot
-Keeps you Telegram Group clean of spam
+Keeps your Telegram Group clean of spam
 # Build
 > mvn clean install
 # Run
