@@ -25,27 +25,57 @@
 package com.apex.bot;
 
 import com.apex.strategy.DeleteFileStrategy;
+import com.apex.strategy.DeleteLinksStrategy;
 import com.apex.strategy.IStrategy;
+import org.mapdb.DB;
+import org.mapdb.DBMaker;
 import org.telegram.telegrambots.meta.api.objects.Update;
+import org.telegram.telegrambots.meta.api.objects.User;
 import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
+import java.time.Instant;
+import java.util.concurrent.ConcurrentMap;
 
 public class TelegramMessageHandler extends ATelegramBot {
 
     private IStrategy deleteFile = new DeleteFileStrategy();
+    private IStrategy deleteLinks = new DeleteLinksStrategy();
 
     public TelegramMessageHandler(String token, String botname) {
         super(token, botname);
     }
 
     @Override
+    @SuppressWarnings("unchecked")
     public void onUpdateReceived(Update update) {
-        if(update.getMessage().hasDocument()){
 
+        if(update.getMessage().getNewChatMembers() != null){
+            DB database = DBMaker.fileDB("file.db").checksumHeaderBypass().make();
+            ConcurrentMap userMap = database.hashMap("user").createOrOpen();
+            for (User user : update.getMessage().getNewChatMembers()){
+                userMap.put(user.getId(), Instant.now().getEpochSecond());
+            }
+            database.close();
+            log.info("Added User");
+        }
+
+        if(update.hasMessage()){
+            deleteLinks.runStrategy(update).ifPresent(delete -> {
+                try {
+                    execute(delete);
+                    log.info("Deleted Link");
+                } catch (TelegramApiException e) {
+                    log.error("Failed to delete Link" + e.getMessage());
+                }
+            });
+        }
+
+        if(update.getMessage().hasDocument()){
             deleteFile.runStrategy(update).ifPresent(delete -> {
                 try {
                     execute(delete);
+                    log.info("Deleted File");
                 } catch (TelegramApiException e) {
-                    log.error("Failed to delete message" + e.getMessage());
+                    log.error("Failed to delete File" + e.getMessage());
                 }
             });
         }

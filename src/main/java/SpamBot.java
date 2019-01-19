@@ -31,22 +31,22 @@ public class SpamBot {
 
     private static final String BOT_TOKEN = "672381625:AAFDAgp8rDSjR_yLBFEPqg0KWOs6fStNXHw";
     private static final String BOT_NAME = "SpamBot";
-    private static final Logger log = LoggerFactory.getLogger(SpamBot.class);
+    private static final Logger LOG = LoggerFactory.getLogger(SpamBot.class);
 
     public static void main(String[] args){
         TelegramSessionManager telegramSessionManager = new TelegramSessionManager();
         try {
             telegramSessionManager.addPollingBot(new TelegramMessageHandler(BOT_TOKEN, BOT_NAME));
             telegramSessionManager.start();
-            log.info("Bot started");
+            LOG.info("Bot started");
             while (true){
-                Thread.sleep(1000);
+                Thread.sleep(1500);
             }
         } catch (Exception e) {
-            log.error("Something went wrong: "+ e.getCause().getMessage());
+            LOG.error("Something went wrong: "+ e.getCause().getMessage());
         } finally {
             telegramSessionManager.stop();
-            log.info("Bot down");
+            LOG.info("Bot down");
         }
     }
 }
