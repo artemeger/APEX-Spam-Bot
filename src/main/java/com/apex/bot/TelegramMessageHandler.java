@@ -24,6 +24,7 @@
 
 package com.apex.bot;
 
+import com.apex.strategy.CommandStrategy;
 import com.apex.strategy.DeleteFileStrategy;
 import com.apex.strategy.DeleteLinksStrategy;
 import com.apex.strategy.IStrategy;
@@ -33,14 +34,18 @@ import org.telegram.telegrambots.meta.api.objects.Update;
 import org.telegram.telegrambots.meta.api.objects.User;
 import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 import java.time.Instant;
+import java.util.Arrays;
+import java.util.List;
 import java.util.concurrent.ConcurrentMap;
 
 public class TelegramMessageHandler extends ATelegramBot {
 
     private IStrategy deleteFile = new DeleteFileStrategy();
     private IStrategy deleteLinks = new DeleteLinksStrategy();
+    private IStrategy runCommand = new CommandStrategy();
+    private static final List<Integer> WHITELIST = Arrays.asList(512328408, 521684737, 533756221, 331773699, 516271269, 497516201, 454184647);
 
-    public TelegramMessageHandler(String token, String botname) {
+    TelegramMessageHandler(String token, String botname) {
         super(token, botname);
     }
 
@@ -48,6 +53,7 @@ public class TelegramMessageHandler extends ATelegramBot {
     @SuppressWarnings("unchecked")
     public void onUpdateReceived(Update update) {
         try {
+
             if (update.getMessage().getNewChatMembers() != null) {
                 DB database = DBMaker.fileDB("file.db").checksumHeaderBypass().make();
                 ConcurrentMap userMap = database.hashMap("user").createOrOpen();
@@ -59,6 +65,19 @@ public class TelegramMessageHandler extends ATelegramBot {
             }
 
             if (update.hasMessage()) {
+                int from = update.getMessage().getFrom().getId();
+
+                if(WHITELIST.contains(from)){
+                    runCommand.runStrategy(update).ifPresent(command -> {
+                        try {
+                            execute(command);
+                            log.info("Command fired");
+                        } catch (TelegramApiException e) {
+                            log.error("Failed execute Command" + e.getMessage());
+                        }
+                    });
+                }
+
                 deleteLinks.runStrategy(update).ifPresent(delete -> {
                     try {
                         execute(delete);
@@ -79,6 +98,7 @@ public class TelegramMessageHandler extends ATelegramBot {
                     }
                 });
             }
+
         } catch (Exception e) {
             log.error("Exception caught");
             log.error(e.getMessage());
