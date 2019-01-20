@@ -49,14 +49,15 @@ public class DeleteLinksStrategy implements IStrategy {
         List<MessageEntity> msgList = update.getMessage().getEntities();
 
         boolean hasLink = false;
-        if(update.getMessage().getFrom().getUserName() == null){
-            return Optional.of(new DeleteMessage(update.getMessage().getChatId(), update.getMessage().getMessageId()));
-        }
 
         if(msgList != null){
             for (MessageEntity ent : msgList){
                 if(ent.getType().contains("link") || ent.getType().contains("url")) hasLink = true;
             }
+        }
+
+        if(update.getMessage().getFrom().getUserName() == null && hasLink){
+            return Optional.of(new DeleteMessage(update.getMessage().getChatId(), update.getMessage().getMessageId()));
         }
 
         if(website != null || fromUser != null || fromChat != null || hasLink){
