@@ -99,10 +99,14 @@ public class CommandStrategy implements IStrategy {
             else if(messageText.contains("!mute")){
                 try {
                     int userId = update.getMessage().getReplyToMessage().getFrom().getId();
+                    long timeToMute = Instant.now().getEpochSecond();
+                    if(messageText.contains("!mute1")) timeToMute += 3600;
+                    else if(messageText.contains("!mute24")) timeToMute += 86400;
+                    else if(messageText.contains("!mute48")) timeToMute += 172800;
                     RestrictChatMember mute = new RestrictChatMember();
                     mute.setUserId(userId);
                     mute.setChatId(update.getMessage().getChatId());
-                    mute.setUntilDate(new BigDecimal(Instant.now().getEpochSecond()+864000).intValueExact());
+                    mute.setUntilDate(new BigDecimal(timeToMute).intValueExact());
                     mute.setCanAddWebPagePreviews(false);
                     mute.setCanSendMessages(false);
                     mute.setCanSendMediaMessages(false);
