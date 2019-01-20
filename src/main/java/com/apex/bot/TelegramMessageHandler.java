@@ -101,8 +101,7 @@ public class TelegramMessageHandler extends ATelegramBot {
             }
 
         } catch (Exception e) {
-            log.error("Exception caught");
-            log.error(e.getMessage());
+            log.debug("Exception caught " + e.getMessage());
         }
     }
 }

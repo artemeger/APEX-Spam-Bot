@@ -87,8 +87,8 @@ public class CommandStrategy implements IStrategy {
                     database.close();
                     SendMessage msg = new SendMessage();
                     msg.setChatId(update.getMessage().getChatId());
-                    msg.setText(update.getMessage().getReplyToMessage().getFrom().getFirstName()+ " you are warned! \n"+
-                            "Count is: " + String.valueOf(count)+ "/3");
+                    msg.setText(update.getMessage().getReplyToMessage().getFrom().getFirstName()+ ", please rethink what you are doing. \n"+
+                            "Warnings: " + String.valueOf(count)+ "/3");
                     log.info("User "+ update.getMessage().getReplyToMessage().getFrom().getFirstName() +" was warned");
                     return Optional.of(msg);
                 } catch (NullPointerException e){
