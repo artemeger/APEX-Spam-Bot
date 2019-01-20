@@ -65,6 +65,7 @@ public class TelegramMessageHandler extends ATelegramBot {
             }
 
             if (update.hasMessage()) {
+
                 int from = update.getMessage().getFrom().getId();
 
                 if(WHITELIST.contains(from)){
