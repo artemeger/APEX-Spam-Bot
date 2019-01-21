@@ -28,6 +28,8 @@ import org.telegram.telegrambots.meta.api.methods.BotApiMethod;
 import org.telegram.telegrambots.meta.api.methods.updatingmessages.DeleteMessage;
 import org.telegram.telegrambots.meta.api.objects.Document;
 import org.telegram.telegrambots.meta.api.objects.Update;
+
+import java.util.ArrayList;
 import java.util.Optional;
 
 public class DeleteFileStrategy implements IStrategy {
@@ -51,7 +53,9 @@ public class DeleteFileStrategy implements IStrategy {
     private static final String TXT = ".txt";
 
     @Override
-    public Optional<BotApiMethod> runStrategy(Update update) {
+    public ArrayList<Optional<BotApiMethod>> runStrategy(Update update) {
+        ArrayList<Optional<BotApiMethod>> result = new ArrayList<>();
+        result.add(Optional.empty());
         Document doc = update.getMessage().getDocument();
         String mimeName = doc.getMimeType();
         String fileName = doc.getFileName();
@@ -61,8 +65,8 @@ public class DeleteFileStrategy implements IStrategy {
                 || fileName.endsWith(MP4) || fileName.endsWith(MPEG) || fileName.endsWith(PDF)
                 || fileName.endsWith(PNG) || fileName.endsWith(JPEG) || fileName.endsWith(GIF)
                 || fileName.endsWith(JPG) || fileName.endsWith(TXT))) {
-            return Optional.of(new DeleteMessage(update.getMessage().getChatId(), update.getMessage().getMessageId()));
+            result.add(Optional.of(new DeleteMessage(update.getMessage().getChatId(), update.getMessage().getMessageId())));
         }
-        return Optional.empty();
+        return result;
     }
 }

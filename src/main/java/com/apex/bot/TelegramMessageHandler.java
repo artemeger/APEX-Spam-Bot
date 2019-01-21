@@ -30,12 +30,15 @@ import com.apex.strategy.DeleteLinksStrategy;
 import com.apex.strategy.IStrategy;
 import org.mapdb.DB;
 import org.mapdb.DBMaker;
+import org.telegram.telegrambots.meta.api.methods.BotApiMethod;
 import org.telegram.telegrambots.meta.api.objects.Update;
 import org.telegram.telegrambots.meta.api.objects.User;
 import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.ConcurrentMap;
 
 public class TelegramMessageHandler extends ATelegramBot {
@@ -55,22 +58,25 @@ public class TelegramMessageHandler extends ATelegramBot {
     public void onUpdateReceived(Update update) {
         try {
             if (CHAT.contains(update.getMessage().getChatId())) {
-                try {
-                    if (update.getMessage().getNewChatMembers() != null) {
-                        DB database = DBMaker.fileDB("file.db").checksumHeaderBypass().make();
-                        ConcurrentMap userMap = database.hashMap("user").createOrOpen();
-                        for (User user : update.getMessage().getNewChatMembers()) {
-                            userMap.put(user.getId(), Instant.now().getEpochSecond());
-                        }
-                        database.close();
-                        log.info("Added User");
+
+                if (update.getMessage().getNewChatMembers() != null) {
+                    DB database = DBMaker.fileDB("file.db").checksumHeaderBypass().make();
+                    ConcurrentMap userMap = database.hashMap("user").createOrOpen();
+                    for (User user : update.getMessage().getNewChatMembers()) {
+                        userMap.put(user.getId(), Instant.now().getEpochSecond());
                     }
+                    database.close();
+                    log.info("Added User");
+                }
 
-                    if (update.hasMessage()) {
-                        int from = update.getMessage().getFrom().getId();
+                int from = update.getMessage().getFrom().getId();
+                ArrayList<Optional<BotApiMethod>> commands;
 
-                        if (WHITELIST.contains(from)) {
-                            runCommand.runStrategy(update).ifPresent(command -> {
+                if(update.hasMessage()) {
+                    if (WHITELIST.contains(from)) {
+                        commands = runCommand.runStrategy(update);
+                        for (Optional<BotApiMethod> method : commands) {
+                            method.ifPresent(command -> {
                                 try {
                                     execute(command);
                                     log.info("Command fired");
@@ -79,19 +85,25 @@ public class TelegramMessageHandler extends ATelegramBot {
                                 }
                             });
                         }
-
-                        deleteLinks.runStrategy(update).ifPresent(delete -> {
-                            try {
-                                execute(delete);
-                                log.info("Deleted Link");
-                            } catch (TelegramApiException e) {
-                                log.error("Failed to delete Link" + e.getMessage());
-                            }
-                        });
                     }
+                }
 
-                    if (update.getMessage().hasDocument()) {
-                        deleteFile.runStrategy(update).ifPresent(delete -> {
+                commands = deleteLinks.runStrategy(update);
+                for(Optional<BotApiMethod> method : commands) {
+                method.ifPresent(delete -> {
+                        try {
+                            execute(delete);
+                            log.info("Deleted Link");
+                        } catch (TelegramApiException e) {
+                            log.error("Failed to delete Link" + e.getMessage());
+                        }
+                    });
+                }
+
+                if (update.getMessage().hasDocument()) {
+                    commands = deleteFile.runStrategy(update);
+                    for(Optional<BotApiMethod> method : commands) {
+                        method.ifPresent(delete -> {
                             try {
                                 execute(delete);
                                 log.info("Deleted File");
@@ -100,12 +112,10 @@ public class TelegramMessageHandler extends ATelegramBot {
                             }
                         });
                     }
-
-                } catch (Exception e) {
-                    log.debug("Exception caught " + e.getMessage());
                 }
             }
         } catch (Exception e) {
+            e.printStackTrace();
             log.debug("Exception caught " + e.getMessage());
         }
     }
