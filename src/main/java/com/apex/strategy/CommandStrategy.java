@@ -97,13 +97,13 @@ public class CommandStrategy implements IStrategy {
                         SendMessage msg = new SendMessage();
                         msg.setChatId(update.getMessage().getChatId());
                         if(count == 1) {
-                            msg.setText(update.getMessage().getReplyToMessage().getFrom().getFirstName() + ", please rethink what you are doing.\nWarnings: 1/3");
+                            msg.setText(update.getMessage().getReplyToMessage().getFrom().getFirstName() + ", please rethink what you are doing.\nKindly requested 1/3 times.");
                             log.info("User " + update.getMessage().getReplyToMessage().getFrom().getFirstName() + " was warned");
                         } else if(count == 2) {
-                            msg.setText(update.getMessage().getReplyToMessage().getFrom().getFirstName() + ",please rethink what you are doing or this will not end well.\nWarnings: 2/3");
+                            msg.setText(update.getMessage().getReplyToMessage().getFrom().getFirstName() + ", please rethink what you are doing or this will not end well.\nKindly requested 2/3 times.");
                             log.info("User " + update.getMessage().getReplyToMessage().getFrom().getFirstName() + " was warned");
                         } else {
-                            msg.setText(update.getMessage().getReplyToMessage().getFrom().getFirstName() + " is currently being chomped on by Chomp.\nWarnings: 3/3");
+                            msg.setText(update.getMessage().getReplyToMessage().getFrom().getFirstName() + " was warned 3/3 times - game over, Chomp wins!");
                             log.info("User " + update.getMessage().getReplyToMessage().getFrom().getFirstName() + " was banned");
                         }
                         result.add(Optional.of(msg));
