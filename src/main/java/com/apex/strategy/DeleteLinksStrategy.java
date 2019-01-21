@@ -24,44 +24,87 @@
 
 package com.apex.strategy;
 
+import org.apache.commons.codec.binary.Hex;
 import org.mapdb.DB;
 import org.mapdb.DBMaker;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.telegram.telegrambots.meta.api.methods.BotApiMethod;
 import org.telegram.telegrambots.meta.api.methods.updatingmessages.DeleteMessage;
-import org.telegram.telegrambots.meta.api.objects.Chat;
-import org.telegram.telegrambots.meta.api.objects.MessageEntity;
-import org.telegram.telegrambots.meta.api.objects.Update;
-import org.telegram.telegrambots.meta.api.objects.User;
+import org.telegram.telegrambots.meta.api.objects.*;
+
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentMap;
 
 public class DeleteLinksStrategy implements IStrategy {
 
+    private Logger log = LoggerFactory.getLogger(this.getClass());
+
     @Override
     @SuppressWarnings("unchecked")
-    public Optional<BotApiMethod> runStrategy(Update update) {
+    public ArrayList<Optional<BotApiMethod>> runStrategy(Update update) {
+        ArrayList<Optional<BotApiMethod>> result = new ArrayList<>();
+        result.add(Optional.empty());
+
         int userId = update.getMessage().getFrom().getId();
         String website = update.getMessage().getConnectedWebsite();
         User fromUser = update.getMessage().getForwardFrom();
         Chat fromChat = update.getMessage().getForwardFromChat();
         List<MessageEntity> msgList = update.getMessage().getEntities();
 
-        boolean hasLink = false;
+        DB database = DBMaker.fileDB("file.db").checksumHeaderBypass().make();
+        ConcurrentMap userWhitelist = database.hashMap("trustedUser").createOrOpen();
+        boolean isWhitelisted = userWhitelist.containsKey(userId);
+        database.close();
+        if(isWhitelisted) return result;
 
+        if(update.getMessage().hasPhoto()) {
+            List<PhotoSize> photos = update.getMessage().getPhoto();
+            database = DBMaker.fileDB("file.db").checksumHeaderBypass().make();
+            ConcurrentMap imageBlackList = database.hashMap("imageBlacklist").createOrOpen();
+
+            String photoMeta = "";
+            for(PhotoSize photo : photos){
+                photoMeta += photo.getHeight().toString() + photo.getWidth().toString();
+            }
+            byte[] bytesOfPhoto = photoMeta.getBytes();
+            String photoId = "";
+            try {
+                MessageDigest md = MessageDigest.getInstance("SHA-256");
+                photoId = new String(Hex.encodeHex(md.digest(bytesOfPhoto)));
+            } catch (NoSuchAlgorithmException e) {
+                log.error(e.getMessage());
+            }
+
+            if (imageBlackList.containsKey(photoId)){
+                result.add(Optional.of(new DeleteMessage(update.getMessage().getChatId(), update.getMessage().getMessageId())));
+                database.close();
+                return result;
+            }
+
+            database.close();
+        }
+
+        boolean hasLink = false;
         if(msgList != null){
             for (MessageEntity ent : msgList){
                 if(ent.getType().contains("link") || ent.getType().contains("url")) hasLink = true;
             }
         }
 
-        if(update.getMessage().getFrom().getUserName() == null && hasLink){
-            return Optional.of(new DeleteMessage(update.getMessage().getChatId(), update.getMessage().getMessageId()));
+        if((update.getMessage().getFrom().getUserName() == null && hasLink) ||
+           (update.getMessage().getFrom().getUserName() == null && update.getMessage().hasPhoto())){
+            result.add(Optional.of(new DeleteMessage(update.getMessage().getChatId(), update.getMessage().getMessageId())));
+            return result;
         }
 
-        if(website != null || fromUser != null || fromChat != null || hasLink){
-            DB database = DBMaker.fileDB("file.db").checksumHeaderBypass().make();
+        if(website != null || fromUser != null || fromChat != null || hasLink) {
+            database = DBMaker.fileDB("file.db").checksumHeaderBypass().make();
             ConcurrentMap map = database.hashMap("user").createOrOpen();
             boolean isInDb = map.containsKey(userId);
             long timeCreated = 0;
@@ -73,10 +116,12 @@ public class DeleteLinksStrategy implements IStrategy {
                     map = database.hashMap("user").createOrOpen();
                     map.put(userId, Instant.now().getEpochSecond());
                     database.close();
-                    return Optional.of(new DeleteMessage(update.getMessage().getChatId(), update.getMessage().getMessageId()));
+                    result.add(Optional.of(new DeleteMessage(update.getMessage().getChatId(), update.getMessage().getMessageId())));
+                    return result;
                 }
             }
         }
-        return Optional.empty();
+        result.add(Optional.empty());
+        return result;
     }
 }

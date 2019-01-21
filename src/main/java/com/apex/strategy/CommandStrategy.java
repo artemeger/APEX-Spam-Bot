@@ -24,6 +24,7 @@
 
 package com.apex.strategy;
 
+import org.apache.commons.codec.binary.Hex;
 import org.mapdb.DB;
 import org.mapdb.DBMaker;
 import org.slf4j.Logger;
@@ -33,9 +34,15 @@ import org.telegram.telegrambots.meta.api.methods.groupadministration.KickChatMe
 import org.telegram.telegrambots.meta.api.methods.groupadministration.RestrictChatMember;
 import org.telegram.telegrambots.meta.api.methods.groupadministration.UnbanChatMember;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
+import org.telegram.telegrambots.meta.api.methods.updatingmessages.DeleteMessage;
+import org.telegram.telegrambots.meta.api.objects.PhotoSize;
 import org.telegram.telegrambots.meta.api.objects.Update;
 import java.math.BigDecimal;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentMap;
 
@@ -45,111 +52,153 @@ public class CommandStrategy implements IStrategy {
 
     @Override
     @SuppressWarnings("unchecked")
-    public Optional<BotApiMethod> runStrategy(Update update) {
-        if(update.hasMessage()) {
-            String messageText = update.getMessage().getText();
+    public ArrayList<Optional<BotApiMethod>> runStrategy(Update update) {
+        ArrayList<Optional<BotApiMethod>> result = new ArrayList<>();
+        try {
+            if (update.hasMessage()) {
+                String messageText = update.getMessage().getText();
 
-            if(messageText.contains("!forgive")){
-                try {
-                    int userId = update.getMessage().getReplyToMessage().getFrom().getId();
-                    DB database = DBMaker.fileDB("file.db").checksumHeaderBypass().make();
-                    ConcurrentMap map = database.hashMap("user").createOrOpen();
-                    ConcurrentMap warn = database.hashMap("warnings").createOrOpen();
-                    map.remove(userId);
-                    warn.remove(userId);
-                    database.close();
-                    log.info("User "+ update.getMessage().getReplyToMessage().getFrom().getFirstName() +" was forgiven");
-                } catch (NullPointerException e){
-                    return Optional.empty();
-                }
-            }
+                if (messageText.contains("!forgive")) {
+                        int userId = update.getMessage().getReplyToMessage().getFrom().getId();
+                        DB database = DBMaker.fileDB("file.db").checksumHeaderBypass().make();
+                        ConcurrentMap map = database.hashMap("user").createOrOpen();
+                        ConcurrentMap warn = database.hashMap("warnings").createOrOpen();
+                        map.remove(userId);
+                        warn.remove(userId);
+                        database.close();
+                        SendMessage msg = new SendMessage();
+                        msg.setChatId(update.getMessage().getChatId());
+                        msg.setText("All is forgiven, " + update.getMessage().getReplyToMessage().getFrom().getFirstName() + ", Chomp loves you!");
+                        result.add(Optional.of(msg));
+                        log.info("User " + update.getMessage().getReplyToMessage().getFrom().getFirstName() + " was forgiven");
+                        return result;
 
-            else if(messageText.contains("!warn")){
-                try {
-                    int userId = update.getMessage().getReplyToMessage().getFrom().getId();
-                    DB database = DBMaker.fileDB("file.db").checksumHeaderBypass().make();
-                    ConcurrentMap map = database.hashMap("warnings").createOrOpen();
-                    int count = 1;
-                    if(!map.containsKey(userId)){
-                        map.put(userId, count);
-                    } else {
-                        int balance = (int) map.get(userId);
-                        balance += 1;
-                        if(balance >= 3){
-                            map.remove(userId);
-                            database.close();
-                            log.info("User "+ update.getMessage().getReplyToMessage().getFrom().getFirstName() +" was banned");
-                            return banUser(userId, update.getMessage().getChatId());
+                } else if (messageText.contains("!warn")) {
+
+                        int userId = update.getMessage().getReplyToMessage().getFrom().getId();
+                        DB database = DBMaker.fileDB("file.db").checksumHeaderBypass().make();
+                        ConcurrentMap map = database.hashMap("warnings").createOrOpen();
+
+                        int count = 1;
+                        if (!map.containsKey(userId)) {
+                            map.put(userId, count);
+                        } else {
+                            int balance = (int) map.get(userId);
+                            balance += 1;
+                            map.put(userId, balance);
+                            if (balance >= 3) {
+                                map.remove(userId);
+                                result.add(banUser(userId, update.getMessage().getChatId()));
+                            }
+                            count = balance;
                         }
-                        count = balance;
-                        map.put(userId, balance);
-                    }
-                    database.close();
-                    SendMessage msg = new SendMessage();
-                    msg.setChatId(update.getMessage().getChatId());
-                    msg.setText(update.getMessage().getReplyToMessage().getFrom().getFirstName()+ ", please rethink what you are doing. \n"+
-                            "Warnings: " + String.valueOf(count)+ "/3");
-                    log.info("User "+ update.getMessage().getReplyToMessage().getFrom().getFirstName() +" was warned");
-                    return Optional.of(msg);
-                } catch (NullPointerException e){
-                    return Optional.empty();
+                        database.close();
+
+                        SendMessage msg = new SendMessage();
+                        msg.setChatId(update.getMessage().getChatId());
+                        if(count == 1) {
+                            msg.setText(update.getMessage().getReplyToMessage().getFrom().getFirstName() + ", please rethink what you are doing.\nWarnings: 1/3");
+                            log.info("User " + update.getMessage().getReplyToMessage().getFrom().getFirstName() + " was warned");
+                        } else if(count == 2) {
+                            msg.setText(update.getMessage().getReplyToMessage().getFrom().getFirstName() + ",please rethink what you are doing or this will not end well.\nWarnings: 2/3");
+                            log.info("User " + update.getMessage().getReplyToMessage().getFrom().getFirstName() + " was warned");
+                        } else {
+                            msg.setText(update.getMessage().getReplyToMessage().getFrom().getFirstName() + " is currently being chomped on by Chomp.\nWarnings: 3/3");
+                            log.info("User " + update.getMessage().getReplyToMessage().getFrom().getFirstName() + " was banned");
+                        }
+                        result.add(Optional.of(msg));
+                        return result;
+
+                } else if (messageText.contains("!mute")) {
+
+                        int userId = update.getMessage().getReplyToMessage().getFrom().getId();
+                        long timeToMute = Instant.now().getEpochSecond();
+                        if (messageText.contains("!mute1")) timeToMute += 3600;
+                        else if (messageText.contains("!mute24")) timeToMute += 86400;
+                        else if (messageText.contains("!mute48")) timeToMute += 172800;
+                        RestrictChatMember mute = new RestrictChatMember();
+                        mute.setUserId(userId);
+                        mute.setChatId(update.getMessage().getChatId());
+                        mute.setUntilDate(new BigDecimal(timeToMute).intValueExact());
+                        mute.setCanAddWebPagePreviews(false);
+                        mute.setCanSendMessages(false);
+                        mute.setCanSendMediaMessages(false);
+                        mute.setCanSendOtherMessages(false);
+                        log.info("User " + update.getMessage().getReplyToMessage().getFrom().getFirstName() + " was muted");
+                        result.add(Optional.of(mute));
+                        return result;
+
+                } else if (messageText.contains("!unmute")) {
+
+                        int userId = update.getMessage().getReplyToMessage().getFrom().getId();
+                        RestrictChatMember unmute = new RestrictChatMember();
+                        unmute.setUserId(userId);
+                        unmute.setChatId(update.getMessage().getChatId());
+                        unmute.setCanAddWebPagePreviews(true);
+                        unmute.setCanSendMessages(true);
+                        unmute.setCanSendMediaMessages(true);
+                        unmute.setCanSendOtherMessages(true);
+                        log.info("User " + update.getMessage().getReplyToMessage().getFrom().getFirstName() + " was unmuted");
+                        result.add(Optional.of(unmute));
+                        return result;
+
+                } else if (messageText.contains("!unban")) {
+                        int userId = update.getMessage().getReplyToMessage().getFrom().getId();
+                        UnbanChatMember unban = new UnbanChatMember();
+                        unban.setUserId(userId);
+                        unban.setChatId(update.getMessage().getChatId());
+                        log.info("User " + update.getMessage().getReplyToMessage().getFrom().getFirstName() + " was unbanned");
+                        result.add(Optional.of(unban));
+                        return result;
+
+                } else if (messageText.contains("!trust")) {
+
+                        int userId = update.getMessage().getReplyToMessage().getFrom().getId();
+                        log.info("User " + update.getMessage().getReplyToMessage().getFrom().getFirstName() + " was added to whitelist");
+                        DB database = DBMaker.fileDB("file.db").checksumHeaderBypass().make();
+                        ConcurrentMap userWhitelist = database.hashMap("trustedUser").createOrOpen();
+                        userWhitelist.put(userId, userId);
+                        database.close();
+
+                } else if (messageText.contains("!delete")) {
+
+                        int userId = update.getMessage().getReplyToMessage().getFrom().getId();
+                        if (update.getMessage().getReplyToMessage().hasPhoto()) {
+                            List<PhotoSize> photos = update.getMessage().getReplyToMessage().getPhoto();
+                            DB database = DBMaker.fileDB("file.db").checksumHeaderBypass().make();
+                            ConcurrentMap imageBlackList = database.hashMap("imageBlacklist").createOrOpen();
+
+                            String photoMeta = "";
+                            for (PhotoSize photo : photos) {
+                                photoMeta += photo.getHeight().toString() + photo.getWidth().toString();
+                            }
+
+                            byte[] bytesOfPhoto = photoMeta.getBytes();
+                            try {
+                                MessageDigest md = MessageDigest.getInstance("SHA-256");
+                                imageBlackList.put(new String(Hex.encodeHex(md.digest(bytesOfPhoto))), userId);
+                                database.close();
+                            } catch (NoSuchAlgorithmException e) {
+                                database.close();
+                                log.error(e.getMessage());
+                            }
+
+                            database.close();
+                        }
+                        result.add(Optional.of(new DeleteMessage(update.getMessage().getChatId(), update.getMessage().getReplyToMessage().getMessageId())));
+                        result.add(Optional.of(new DeleteMessage(update.getMessage().getChatId(), update.getMessage().getMessageId())));
+                        return result;
                 }
+
             }
 
-            else if(messageText.contains("!mute")){
-                try {
-                    int userId = update.getMessage().getReplyToMessage().getFrom().getId();
-                    long timeToMute = Instant.now().getEpochSecond();
-                    if(messageText.contains("!mute1")) timeToMute += 3600;
-                    else if(messageText.contains("!mute24")) timeToMute += 86400;
-                    else if(messageText.contains("!mute48")) timeToMute += 172800;
-                    RestrictChatMember mute = new RestrictChatMember();
-                    mute.setUserId(userId);
-                    mute.setChatId(update.getMessage().getChatId());
-                    mute.setUntilDate(new BigDecimal(timeToMute).intValueExact());
-                    mute.setCanAddWebPagePreviews(false);
-                    mute.setCanSendMessages(false);
-                    mute.setCanSendMediaMessages(false);
-                    mute.setCanSendOtherMessages(false);
-                    log.info("User "+ update.getMessage().getReplyToMessage().getFrom().getFirstName() +" was muted");
-                    return Optional.of(mute);
-                } catch (NullPointerException e){
-                    return Optional.empty();
-                }
-            }
+            result.add(Optional.empty());
+            return result;
 
-            else if(messageText.contains("!unmute")){
-                try {
-                    int userId = update.getMessage().getReplyToMessage().getFrom().getId();
-                    RestrictChatMember unmute = new RestrictChatMember();
-                    unmute.setUserId(userId);
-                    unmute.setChatId(update.getMessage().getChatId());
-                    unmute.setCanAddWebPagePreviews(true);
-                    unmute.setCanSendMessages(true);
-                    unmute.setCanSendMediaMessages(true);
-                    unmute.setCanSendOtherMessages(true);
-                    log.info("User "+ update.getMessage().getReplyToMessage().getFrom().getFirstName() +" was unmuted");
-                    return Optional.of(unmute);
-                } catch (NullPointerException e){
-                    return Optional.empty();
-                }
-            }
-
-            else if(messageText.contains("!unban")){
-                try {
-                    int userId = update.getMessage().getReplyToMessage().getFrom().getId();
-                    UnbanChatMember unban = new UnbanChatMember();
-                    unban.setUserId(userId);
-                    unban.setChatId(update.getMessage().getChatId());
-                    log.info("User "+ update.getMessage().getReplyToMessage().getFrom().getFirstName() +" was unbanned");
-                    return Optional.of(unban);
-                } catch (NullPointerException e){
-                    return Optional.empty();
-                }
-            }
-
+        } catch (NullPointerException e) {
+            result.add(Optional.empty());
+            return result;
         }
-        return Optional.empty();
     }
 
     private Optional<BotApiMethod> banUser(int userId, long chatId){
