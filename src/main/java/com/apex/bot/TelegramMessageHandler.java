@@ -127,30 +127,32 @@ public class TelegramMessageHandler extends ATelegramBot {
                     }
                 }
 
-                if (update.getMessage().hasDocument()) {
-                    commands = deleteFile.runStrategy(update);
-                    for(Optional<BotApiMethod> method : commands) {
+                if (!WHITELIST.contains(from)) {
+                    if (update.getMessage().hasDocument()) {
+                        commands = deleteFile.runStrategy(update);
+                        for (Optional<BotApiMethod> method : commands) {
+                            method.ifPresent(delete -> {
+                                try {
+                                    execute(delete);
+                                    log.info("Deleted File");
+                                } catch (TelegramApiException e) {
+                                    log.error("Failed to delete File" + e.getMessage());
+                                }
+                            });
+                        }
+                    }
+
+                    commands = deleteLinks.runStrategy(update);
+                    for (Optional<BotApiMethod> method : commands) {
                         method.ifPresent(delete -> {
                             try {
                                 execute(delete);
-                                log.info("Deleted File");
+                                log.info("Deleted Link");
                             } catch (TelegramApiException e) {
-                                log.error("Failed to delete File" + e.getMessage());
+                                log.error("Failed to delete Link" + e.getMessage());
                             }
                         });
                     }
-                }
-
-                commands = deleteLinks.runStrategy(update);
-                for(Optional<BotApiMethod> method : commands) {
-                method.ifPresent(delete -> {
-                        try {
-                            execute(delete);
-                            log.info("Deleted Link");
-                        } catch (TelegramApiException e) {
-                            log.error("Failed to delete Link" + e.getMessage());
-                        }
-                    });
                 }
             }
 
