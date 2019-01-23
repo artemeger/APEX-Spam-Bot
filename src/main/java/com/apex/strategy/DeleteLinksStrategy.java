@@ -24,6 +24,7 @@
 
 package com.apex.strategy;
 
+import com.apex.bot.TelegramMessageHandler;
 import com.apex.objects.Feedback;
 import org.apache.commons.codec.binary.Hex;
 import org.mapdb.DB;
@@ -51,7 +52,6 @@ import java.util.concurrent.ConcurrentMap;
 public class DeleteLinksStrategy implements IStrategy {
 
     private Logger log = LoggerFactory.getLogger(this.getClass());
-    public static final long VERIFICATON = -1001417745659L;
 
     @Override
     @SuppressWarnings("unchecked")
@@ -73,7 +73,8 @@ public class DeleteLinksStrategy implements IStrategy {
         if(isWhitelisted) return result;
 
         if (update.getMessage().hasDocument()) {
-            if (update.getMessage().getDocument().getMimeType().equals("image/gif")) {
+            if (update.getMessage().getDocument().getMimeType().equals("image/gif") ||
+                update.getMessage().getDocument().getMimeType().equals("video/mp4")) {
                 return result;
             }
         }
@@ -99,7 +100,9 @@ public class DeleteLinksStrategy implements IStrategy {
             }
 
             if (imageBlackList.containsKey(photoId)){
-                result.add(Optional.of(new DeleteMessage(update.getMessage().getChatId(), update.getMessage().getMessageId())));
+                result.add(Optional.of(new ForwardMessage(TelegramMessageHandler.VERIFICATON, chatId, update.getMessage().getMessageId())));
+                result.add(sendBanKeyboard(userId, chatId));
+                result.add(Optional.of(new DeleteMessage(chatId, update.getMessage().getMessageId())));
                 database.close();
                 return result;
             }
@@ -125,7 +128,7 @@ public class DeleteLinksStrategy implements IStrategy {
                         ban.setUntilDate(new BigDecimal(Instant.now().getEpochSecond()).intValue());
                         result.add(Optional.of(ban));
                         database.close();
-                        result.add(Optional.of(new DeleteMessage(update.getMessage().getChatId(), update.getMessage().getMessageId())));
+                        result.add(Optional.of(new DeleteMessage(chatId, update.getMessage().getMessageId())));
                         return result;
                     }
                     database.close();
@@ -136,14 +139,14 @@ public class DeleteLinksStrategy implements IStrategy {
         if((update.getMessage().getFrom().getUserName() == null && hasLink) ||
            (update.getMessage().getFrom().getUserName() == null && update.getMessage().hasPhoto())){
             if(hasLink) {
-                result.add(Optional.of(new ForwardMessage(VERIFICATON, update.getMessage().getChatId(), update.getMessage().getMessageId())));
+                result.add(Optional.of(new ForwardMessage(TelegramMessageHandler.VERIFICATON, update.getMessage().getChatId(), update.getMessage().getMessageId())));
                 result.add(sendFeedbackKeyboard(link, userId, chatId));
             }
-            result.add(Optional.of(new DeleteMessage(update.getMessage().getChatId(), update.getMessage().getMessageId())));
+            result.add(Optional.of(new DeleteMessage(chatId, update.getMessage().getMessageId())));
             return result;
         }
 
-        if(website != null || fromUser != null || fromChat != null || hasLink) {
+        if(website != null || fromUser != null || fromChat != null || hasLink || update.getMessage().hasPhoto() || update.getMessage().hasDocument()) {
             database = DBMaker.fileDB("file.db").checksumHeaderBypass().make();
             ConcurrentMap map = database.hashMap("user").createOrOpen();
             boolean isInDb = map.containsKey(userId);
@@ -156,8 +159,20 @@ public class DeleteLinksStrategy implements IStrategy {
                     map = database.hashMap("user").createOrOpen();
                     map.put(userId, Instant.now().getEpochSecond());
                     database.close();
-                    result.add(Optional.of(new ForwardMessage(VERIFICATON, update.getMessage().getChatId(), update.getMessage().getMessageId())));
-                    result.add(sendFeedbackKeyboard(link, userId, chatId));
+
+                    if(!link.equals("")) {
+                        result.add(Optional.of(new ForwardMessage(TelegramMessageHandler.VERIFICATON, chatId, update.getMessage().getMessageId())));
+                        result.add(sendFeedbackKeyboard(link, userId, chatId));
+                    }
+
+                    if(update.getMessage().hasDocument() || update.getMessage().hasPhoto()){
+                        if((update.getMessage().getCaption()!= null && update.getMessage().getCaption().contains("@")) ||
+                                (update.getMessage().getText() != null && update.getMessage().getText().contains("@"))) {
+                            result.add(Optional.of(new ForwardMessage(TelegramMessageHandler.VERIFICATON, chatId, update.getMessage().getMessageId())));
+                            result.add(sendBanKeyboard(userId, chatId));
+                        }
+                    }
+
                     result.add(Optional.of(new DeleteMessage(update.getMessage().getChatId(), update.getMessage().getMessageId())));
                     return result;
                 }
@@ -168,7 +183,7 @@ public class DeleteLinksStrategy implements IStrategy {
 
     private Optional<BotApiMethod> sendFeedbackKeyboard(String dataToBan, int userId, long chatid) {
         SendMessage message = new SendMessage();
-        message.setChatId(VERIFICATON);
+        message.setChatId(TelegramMessageHandler.VERIFICATON);
         message.setText("Add to Blacklist and ban user?");
         DB database = DBMaker.fileDB("file.db").checksumHeaderBypass().make();
         ConcurrentMap map = database.hashMap("feedback").createOrOpen();
@@ -181,7 +196,39 @@ public class DeleteLinksStrategy implements IStrategy {
             List<InlineKeyboardButton> row1 = new ArrayList<>();
             InlineKeyboardButton button1 = new InlineKeyboardButton();
             button1.setText("Yes");
-            button1.setCallbackData(id);
+            button1.setCallbackData("blacklist,"+id);
+            row1.add(button1);
+            List<InlineKeyboardButton> row2 = new ArrayList<>();
+            InlineKeyboardButton button2 = new InlineKeyboardButton();
+            button2.setText("No");
+            button2.setCallbackData("false");
+            row2.add(button2);
+            keyboard.add(row1);
+            keyboard.add(row2);
+            inlineKeyboardMarkup.setKeyboard(keyboard);
+            message.setReplyMarkup(inlineKeyboardMarkup);
+        } catch (Exception e) {
+            log.error(e.getMessage());
+        }
+        return Optional.of(message);
+    }
+
+    private Optional<BotApiMethod> sendBanKeyboard(int userId, long chatid) {
+        SendMessage message = new SendMessage();
+        message.setChatId(TelegramMessageHandler.VERIFICATON);
+        message.setText("Ban this user?");
+        DB database = DBMaker.fileDB("file.db").checksumHeaderBypass().make();
+        ConcurrentMap map = database.hashMap("feedback").createOrOpen();
+        String id = UUID.randomUUID().toString();
+        map.put(id, new Feedback("", userId, chatid));
+        database.close();
+        try {
+            InlineKeyboardMarkup inlineKeyboardMarkup = new InlineKeyboardMarkup();
+            List<List<InlineKeyboardButton>> keyboard = new ArrayList<>();
+            List<InlineKeyboardButton> row1 = new ArrayList<>();
+            InlineKeyboardButton button1 = new InlineKeyboardButton();
+            button1.setText("Yes");
+            button1.setCallbackData("ban,"+id);
             row1.add(button1);
             List<InlineKeyboardButton> row2 = new ArrayList<>();
             InlineKeyboardButton button2 = new InlineKeyboardButton();
