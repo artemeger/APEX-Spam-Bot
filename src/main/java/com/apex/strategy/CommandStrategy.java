@@ -53,6 +53,7 @@ public class CommandStrategy implements IStrategy {
     @Override
     @SuppressWarnings("unchecked")
     public ArrayList<Optional<BotApiMethod>> runStrategy(Update update) {
+
         ArrayList<Optional<BotApiMethod>> result = new ArrayList<>();
         try {
             if (update.hasMessage()) {
@@ -96,16 +97,19 @@ public class CommandStrategy implements IStrategy {
 
                         SendMessage msg = new SendMessage();
                         msg.setChatId(update.getMessage().getChatId());
+                        String firstName = update.getMessage().getReplyToMessage().getFrom().getFirstName();
+
                         if(count == 1) {
-                            msg.setText(update.getMessage().getReplyToMessage().getFrom().getFirstName() + ", please rethink what you are doing.\nKindly requested 1/3 times.");
-                            log.info("User " + update.getMessage().getReplyToMessage().getFrom().getFirstName() + " was warned");
+                            msg.setText(firstName + ", please rethink what you are doing.\nKindly requested 1/3 times.");
+                            log.info("User " + firstName + " was warned");
                         } else if(count == 2) {
-                            msg.setText(update.getMessage().getReplyToMessage().getFrom().getFirstName() + ", please rethink what you are doing or this will not end well.\nKindly requested 2/3 times.");
-                            log.info("User " + update.getMessage().getReplyToMessage().getFrom().getFirstName() + " was warned");
+                            msg.setText(firstName + ", please rethink what you are doing or this will not end well.\nKindly requested 2/3 times.");
+                            log.info("User " + firstName + " was warned");
                         } else {
-                            msg.setText(update.getMessage().getReplyToMessage().getFrom().getFirstName() + " was warned 3/3 times - game over, Chomp wins!");
-                            log.info("User " + update.getMessage().getReplyToMessage().getFrom().getFirstName() + " was banned");
+                            msg.setText(firstName + " was warned 3/3 times - game over, Chomp wins!");
+                            log.info("User " + firstName + " was banned");
                         }
+
                         result.add(Optional.of(msg));
                         return result;
 
@@ -182,14 +186,12 @@ public class CommandStrategy implements IStrategy {
                                 database.close();
                                 log.error(e.getMessage());
                             }
-
                             database.close();
                         }
                         result.add(Optional.of(new DeleteMessage(update.getMessage().getChatId(), update.getMessage().getReplyToMessage().getMessageId())));
                         result.add(Optional.of(new DeleteMessage(update.getMessage().getChatId(), update.getMessage().getMessageId())));
                         return result;
                 }
-
             }
 
             result.add(Optional.empty());

@@ -24,6 +24,7 @@
 
 package com.apex.bot;
 
+import com.apex.objects.Feedback;
 import com.apex.strategy.CommandStrategy;
 import com.apex.strategy.DeleteFileStrategy;
 import com.apex.strategy.DeleteLinksStrategy;
@@ -31,14 +32,15 @@ import com.apex.strategy.IStrategy;
 import org.mapdb.DB;
 import org.mapdb.DBMaker;
 import org.telegram.telegrambots.meta.api.methods.BotApiMethod;
+import org.telegram.telegrambots.meta.api.methods.groupadministration.KickChatMember;
+import org.telegram.telegrambots.meta.api.methods.updatingmessages.DeleteMessage;
+import org.telegram.telegrambots.meta.api.objects.CallbackQuery;
 import org.telegram.telegrambots.meta.api.objects.Update;
 import org.telegram.telegrambots.meta.api.objects.User;
 import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
+import java.math.BigDecimal;
 import java.time.Instant;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
-import java.util.Optional;
+import java.util.*;
 import java.util.concurrent.ConcurrentMap;
 
 public class TelegramMessageHandler extends ATelegramBot {
@@ -47,7 +49,7 @@ public class TelegramMessageHandler extends ATelegramBot {
     private IStrategy deleteLinks = new DeleteLinksStrategy();
     private IStrategy runCommand = new CommandStrategy();
     private static final List<Integer> WHITELIST = Arrays.asList(512328408, 521684737, 533756221, 331773699, 516271269, 497516201, 454184647);
-    private static final List<Long> CHAT = Arrays.asList(-1001385910531L, -1001175224299L);
+    private static final List<Long> CHAT = Arrays.asList(-1001385910531L, -1001175224299L, -1001417745659L);
 
     TelegramMessageHandler(String token, String botname) {
         super(token, botname);
@@ -56,9 +58,37 @@ public class TelegramMessageHandler extends ATelegramBot {
     @Override
     @SuppressWarnings("unchecked")
     public void onUpdateReceived(Update update) {
-        try {
-            if (CHAT.contains(update.getMessage().getChatId())) {
 
+        try {
+
+            if(update.hasCallbackQuery()){
+                try {
+                    CallbackQuery query = update.getCallbackQuery();
+                    String callbackData = query.getData();
+                    if(callbackData != null && !callbackData.equals("false")){
+                        DB database = DBMaker.fileDB("file.db").checksumHeaderBypass().make();
+                        ConcurrentMap map = database.hashMap("feedback").createOrOpen();
+                        Feedback feedback = (Feedback) map.get(callbackData);
+                        database.close();
+                        database = DBMaker.fileDB("file.db").checksumHeaderBypass().make();
+                        ConcurrentMap mapUrlBlackList = database.hashMap("urlBlackList").createOrOpen();
+                        mapUrlBlackList.put(feedback.getDataToBan(), feedback.getUserId());
+                        database.close();
+                        KickChatMember ban = new KickChatMember();
+                        ban.setUserId(feedback.getUserId());
+                        ban.setChatId(feedback.getChatId());
+                        ban.setUntilDate(new BigDecimal(Instant.now().getEpochSecond()).intValue());
+                        execute(ban);
+                    }
+                    DeleteMessage deleteMessage = new DeleteMessage(DeleteLinksStrategy.VERIFICATON,  query.getMessage().getMessageId());
+                    execute(deleteMessage);
+                } catch (Exception e){
+                    log.error("Error in Callback");
+                    log.error(e.getMessage());
+                }
+            }
+
+            if (CHAT.contains(update.getMessage().getChatId())) {
                 if (update.getMessage().getNewChatMembers() != null) {
                     DB database = DBMaker.fileDB("file.db").checksumHeaderBypass().make();
                     ConcurrentMap userMap = database.hashMap("user").createOrOpen();
@@ -115,8 +145,6 @@ public class TelegramMessageHandler extends ATelegramBot {
                 }
             }
 
-        } catch (Exception e) {
-            log.debug("Exception caught " + e.getMessage());
-        }
+        } catch (Exception e) {}
     }
 }
