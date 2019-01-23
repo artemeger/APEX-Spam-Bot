@@ -24,26 +24,34 @@
 
 package com.apex.strategy;
 
+import com.apex.objects.Feedback;
 import org.apache.commons.codec.binary.Hex;
 import org.mapdb.DB;
 import org.mapdb.DBMaker;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.telegram.telegrambots.meta.api.methods.BotApiMethod;
+import org.telegram.telegrambots.meta.api.methods.ForwardMessage;
+import org.telegram.telegrambots.meta.api.methods.groupadministration.KickChatMember;
+import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
 import org.telegram.telegrambots.meta.api.methods.updatingmessages.DeleteMessage;
 import org.telegram.telegrambots.meta.api.objects.*;
-
+import org.telegram.telegrambots.meta.api.objects.replykeyboard.InlineKeyboardMarkup;
+import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.InlineKeyboardButton;
+import java.math.BigDecimal;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 import java.util.concurrent.ConcurrentMap;
 
 public class DeleteLinksStrategy implements IStrategy {
 
     private Logger log = LoggerFactory.getLogger(this.getClass());
+    public static final long VERIFICATON = -1001417745659L;
 
     @Override
     @SuppressWarnings("unchecked")
@@ -52,6 +60,7 @@ public class DeleteLinksStrategy implements IStrategy {
         result.add(Optional.empty());
 
         int userId = update.getMessage().getFrom().getId();
+        long chatId = update.getMessage().getChatId();
         String website = update.getMessage().getConnectedWebsite();
         User fromUser = update.getMessage().getForwardFrom();
         Chat fromChat = update.getMessage().getForwardFromChat();
@@ -63,6 +72,12 @@ public class DeleteLinksStrategy implements IStrategy {
         database.close();
         if(isWhitelisted) return result;
 
+        if (update.getMessage().hasDocument()) {
+            if (update.getMessage().getDocument().getMimeType().equals("image/gif")) {
+                return result;
+            }
+        }
+
         if(update.getMessage().hasPhoto()) {
             List<PhotoSize> photos = update.getMessage().getPhoto();
             database = DBMaker.fileDB("file.db").checksumHeaderBypass().make();
@@ -72,8 +87,10 @@ public class DeleteLinksStrategy implements IStrategy {
             for(PhotoSize photo : photos){
                 photoMeta += photo.getHeight().toString() + photo.getWidth().toString();
             }
+
             byte[] bytesOfPhoto = photoMeta.getBytes();
             String photoId = "";
+
             try {
                 MessageDigest md = MessageDigest.getInstance("SHA-256");
                 photoId = new String(Hex.encodeHex(md.digest(bytesOfPhoto)));
@@ -91,14 +108,37 @@ public class DeleteLinksStrategy implements IStrategy {
         }
 
         boolean hasLink = false;
+        String link = "";
+
         if(msgList != null){
             for (MessageEntity ent : msgList){
-                if(ent.getType().contains("link") || ent.getType().contains("url")) hasLink = true;
+                if(ent.getType().contains("link") || ent.getType().contains("url")) {
+                    hasLink = true;
+                    if(ent.getText() != null) link = ent.getText();
+                    if(ent.getUrl() != null) link = ent.getUrl();
+                    database = DBMaker.fileDB("file.db").checksumHeaderBypass().make();
+                    ConcurrentMap mapUrlBlackList = database.hashMap("urlBlackList").createOrOpen();
+                    if(mapUrlBlackList.containsKey(link)){
+                        KickChatMember ban = new KickChatMember();
+                        ban.setUserId(userId);
+                        ban.setChatId(chatId);
+                        ban.setUntilDate(new BigDecimal(Instant.now().getEpochSecond()).intValue());
+                        result.add(Optional.of(ban));
+                        database.close();
+                        result.add(Optional.of(new DeleteMessage(update.getMessage().getChatId(), update.getMessage().getMessageId())));
+                        return result;
+                    }
+                    database.close();
+                }
             }
         }
 
         if((update.getMessage().getFrom().getUserName() == null && hasLink) ||
            (update.getMessage().getFrom().getUserName() == null && update.getMessage().hasPhoto())){
+            if(hasLink) {
+                result.add(Optional.of(new ForwardMessage(VERIFICATON, update.getMessage().getChatId(), update.getMessage().getMessageId())));
+                result.add(sendFeedbackKeyboard(link, userId, chatId));
+            }
             result.add(Optional.of(new DeleteMessage(update.getMessage().getChatId(), update.getMessage().getMessageId())));
             return result;
         }
@@ -116,12 +156,45 @@ public class DeleteLinksStrategy implements IStrategy {
                     map = database.hashMap("user").createOrOpen();
                     map.put(userId, Instant.now().getEpochSecond());
                     database.close();
+                    result.add(Optional.of(new ForwardMessage(VERIFICATON, update.getMessage().getChatId(), update.getMessage().getMessageId())));
+                    result.add(sendFeedbackKeyboard(link, userId, chatId));
                     result.add(Optional.of(new DeleteMessage(update.getMessage().getChatId(), update.getMessage().getMessageId())));
                     return result;
                 }
             }
         }
-        result.add(Optional.empty());
         return result;
+    }
+
+    private Optional<BotApiMethod> sendFeedbackKeyboard(String dataToBan, int userId, long chatid) {
+        SendMessage message = new SendMessage();
+        message.setChatId(VERIFICATON);
+        message.setText("Add to Blacklist and ban user?");
+        DB database = DBMaker.fileDB("file.db").checksumHeaderBypass().make();
+        ConcurrentMap map = database.hashMap("feedback").createOrOpen();
+        String id = UUID.randomUUID().toString();
+        map.put(id, new Feedback(dataToBan, userId, chatid));
+        database.close();
+        try {
+            InlineKeyboardMarkup inlineKeyboardMarkup = new InlineKeyboardMarkup();
+            List<List<InlineKeyboardButton>> keyboard = new ArrayList<>();
+            List<InlineKeyboardButton> row1 = new ArrayList<>();
+            InlineKeyboardButton button1 = new InlineKeyboardButton();
+            button1.setText("Yes");
+            button1.setCallbackData(id);
+            row1.add(button1);
+            List<InlineKeyboardButton> row2 = new ArrayList<>();
+            InlineKeyboardButton button2 = new InlineKeyboardButton();
+            button2.setText("No");
+            button2.setCallbackData("false");
+            row2.add(button2);
+            keyboard.add(row1);
+            keyboard.add(row2);
+            inlineKeyboardMarkup.setKeyboard(keyboard);
+            message.setReplyMarkup(inlineKeyboardMarkup);
+        } catch (Exception e) {
+            log.error(e.getMessage());
+        }
+        return Optional.of(message);
     }
 }
