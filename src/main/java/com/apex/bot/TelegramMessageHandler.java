@@ -50,6 +50,7 @@ public class TelegramMessageHandler extends ATelegramBot {
     private IStrategy runCommand = new CommandStrategy();
     private static final List<Integer> WHITELIST = Arrays.asList(512328408, 521684737, 533756221, 331773699, 516271269, 497516201, 454184647);
     private static final List<Long> CHAT = Arrays.asList(-1001385910531L, -1001175224299L, -1001417745659L);
+    public static final long VERIFICATON = -1001417745659L;
 
     TelegramMessageHandler(String token, String botname) {
         super(token, botname);
@@ -66,21 +67,29 @@ public class TelegramMessageHandler extends ATelegramBot {
                     CallbackQuery query = update.getCallbackQuery();
                     String callbackData = query.getData();
                     if(callbackData != null && !callbackData.equals("false")){
+
+                        String [] arg = callbackData.split(",");
+
                         DB database = DBMaker.fileDB("file.db").checksumHeaderBypass().make();
                         ConcurrentMap map = database.hashMap("feedback").createOrOpen();
-                        Feedback feedback = (Feedback) map.get(callbackData);
+                        Feedback feedback = (Feedback) map.get(arg[1]);
                         database.close();
-                        database = DBMaker.fileDB("file.db").checksumHeaderBypass().make();
-                        ConcurrentMap mapUrlBlackList = database.hashMap("urlBlackList").createOrOpen();
-                        mapUrlBlackList.put(feedback.getDataToBan(), feedback.getUserId());
-                        database.close();
+
+                        if(arg[0].equals("blacklist")) {
+                            database = DBMaker.fileDB("file.db").checksumHeaderBypass().make();
+                            ConcurrentMap mapUrlBlackList = database.hashMap("urlBlackList").createOrOpen();
+                            mapUrlBlackList.put(feedback.getDataToBan(), feedback.getUserId());
+                            database.close();
+                        }
+
                         KickChatMember ban = new KickChatMember();
                         ban.setUserId(feedback.getUserId());
                         ban.setChatId(feedback.getChatId());
                         ban.setUntilDate(new BigDecimal(Instant.now().getEpochSecond()).intValue());
                         execute(ban);
                     }
-                    DeleteMessage deleteMessage = new DeleteMessage(DeleteLinksStrategy.VERIFICATON,  query.getMessage().getMessageId());
+
+                    DeleteMessage deleteMessage = new DeleteMessage(VERIFICATON,  query.getMessage().getMessageId());
                     execute(deleteMessage);
                 } catch (Exception e){
                     log.error("Error in Callback");
@@ -118,18 +127,6 @@ public class TelegramMessageHandler extends ATelegramBot {
                     }
                 }
 
-                commands = deleteLinks.runStrategy(update);
-                for(Optional<BotApiMethod> method : commands) {
-                method.ifPresent(delete -> {
-                        try {
-                            execute(delete);
-                            log.info("Deleted Link");
-                        } catch (TelegramApiException e) {
-                            log.error("Failed to delete Link" + e.getMessage());
-                        }
-                    });
-                }
-
                 if (update.getMessage().hasDocument()) {
                     commands = deleteFile.runStrategy(update);
                     for(Optional<BotApiMethod> method : commands) {
@@ -142,6 +139,18 @@ public class TelegramMessageHandler extends ATelegramBot {
                             }
                         });
                     }
+                }
+
+                commands = deleteLinks.runStrategy(update);
+                for(Optional<BotApiMethod> method : commands) {
+                method.ifPresent(delete -> {
+                        try {
+                            execute(delete);
+                            log.info("Deleted Link");
+                        } catch (TelegramApiException e) {
+                            log.error("Failed to delete Link" + e.getMessage());
+                        }
+                    });
                 }
             }
 

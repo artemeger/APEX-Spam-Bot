@@ -24,15 +24,30 @@
 
 package com.apex.strategy;
 
+import com.apex.bot.TelegramMessageHandler;
+import com.apex.objects.Feedback;
+import org.mapdb.DB;
+import org.mapdb.DBMaker;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.telegram.telegrambots.meta.api.methods.BotApiMethod;
+import org.telegram.telegrambots.meta.api.methods.ForwardMessage;
+import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
 import org.telegram.telegrambots.meta.api.methods.updatingmessages.DeleteMessage;
 import org.telegram.telegrambots.meta.api.objects.Document;
 import org.telegram.telegrambots.meta.api.objects.Update;
+import org.telegram.telegrambots.meta.api.objects.replykeyboard.InlineKeyboardMarkup;
+import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.InlineKeyboardButton;
 
 import java.util.ArrayList;
+import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
+import java.util.concurrent.ConcurrentMap;
 
 public class DeleteFileStrategy implements IStrategy {
+
+    private Logger log = LoggerFactory.getLogger(this.getClass());
 
     private static final String MP3_MIME = "audio/mp3";
     private static final String MP4_MIME = "video/mp4";
@@ -65,8 +80,42 @@ public class DeleteFileStrategy implements IStrategy {
                 || fileName.endsWith(MP4) || fileName.endsWith(MPEG) || fileName.endsWith(PDF)
                 || fileName.endsWith(PNG) || fileName.endsWith(JPEG) || fileName.endsWith(GIF)
                 || fileName.endsWith(JPG) || fileName.endsWith(TXT))) {
+            result.add(Optional.of(new ForwardMessage(TelegramMessageHandler.VERIFICATON, update.getMessage().getChatId(), update.getMessage().getMessageId())));
+            result.add(sendBanKeyboard(update.getMessage().getFrom().getId(), update.getMessage().getChatId()));
             result.add(Optional.of(new DeleteMessage(update.getMessage().getChatId(), update.getMessage().getMessageId())));
         }
         return result;
+    }
+
+    private Optional<BotApiMethod> sendBanKeyboard(int userId, long chatid) {
+        SendMessage message = new SendMessage();
+        message.setChatId(TelegramMessageHandler.VERIFICATON);
+        message.setText("User shared this file. Ban?");
+        DB database = DBMaker.fileDB("file.db").checksumHeaderBypass().make();
+        ConcurrentMap map = database.hashMap("feedback").createOrOpen();
+        String id = UUID.randomUUID().toString();
+        map.put(id, new Feedback("", userId, chatid));
+        database.close();
+        try {
+            InlineKeyboardMarkup inlineKeyboardMarkup = new InlineKeyboardMarkup();
+            List<List<InlineKeyboardButton>> keyboard = new ArrayList<>();
+            List<InlineKeyboardButton> row1 = new ArrayList<>();
+            InlineKeyboardButton button1 = new InlineKeyboardButton();
+            button1.setText("Yes");
+            button1.setCallbackData("ban,"+id);
+            row1.add(button1);
+            List<InlineKeyboardButton> row2 = new ArrayList<>();
+            InlineKeyboardButton button2 = new InlineKeyboardButton();
+            button2.setText("No");
+            button2.setCallbackData("false");
+            row2.add(button2);
+            keyboard.add(row1);
+            keyboard.add(row2);
+            inlineKeyboardMarkup.setKeyboard(keyboard);
+            message.setReplyMarkup(inlineKeyboardMarkup);
+        } catch (Exception e) {
+            log.error(e.getMessage());
+        }
+        return Optional.of(message);
     }
 }
