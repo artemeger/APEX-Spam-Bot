@@ -138,7 +138,7 @@ public class DeleteLinksStrategy implements IStrategy {
 
         if((update.getMessage().getFrom().getUserName() == null && hasLink) ||
            (update.getMessage().getFrom().getUserName() == null && update.getMessage().hasPhoto())){
-            if(hasLink) {
+            if(!link.equals("")) {
                 result.add(Optional.of(new ForwardMessage(TelegramMessageHandler.VERIFICATON, update.getMessage().getChatId(), update.getMessage().getMessageId())));
                 result.add(sendFeedbackKeyboard(link, userId, chatId));
             }
@@ -184,7 +184,7 @@ public class DeleteLinksStrategy implements IStrategy {
     private Optional<BotApiMethod> sendFeedbackKeyboard(String dataToBan, int userId, long chatid) {
         SendMessage message = new SendMessage();
         message.setChatId(TelegramMessageHandler.VERIFICATON);
-        message.setText("Add to Blacklist and ban user?");
+        message.setText("Add to blacklist and ban user?");
         DB database = DBMaker.fileDB("file.db").checksumHeaderBypass().make();
         ConcurrentMap map = database.hashMap("feedback").createOrOpen();
         String id = UUID.randomUUID().toString();
