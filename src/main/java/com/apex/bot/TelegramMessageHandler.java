@@ -82,11 +82,15 @@ public class TelegramMessageHandler extends ATelegramBot {
                             database.close();
                         }
 
-                        KickChatMember ban = new KickChatMember();
-                        ban.setUserId(feedback.getUserId());
-                        ban.setChatId(feedback.getChatId());
-                        ban.setUntilDate(new BigDecimal(Instant.now().getEpochSecond()).intValue());
-                        execute(ban);
+                        try {
+                            KickChatMember ban = new KickChatMember();
+                            ban.setUserId(feedback.getUserId());
+                            ban.setChatId(feedback.getChatId());
+                            ban.setUntilDate(new BigDecimal(Instant.now().getEpochSecond()).intValue());
+                            execute(ban);
+                        } catch (Exception e){
+                            log.info("Cant ban - User already deleted");
+                        }
                     }
 
                     DeleteMessage deleteMessage = new DeleteMessage(VERIFICATON,  query.getMessage().getMessageId());
