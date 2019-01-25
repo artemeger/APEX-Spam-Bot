@@ -73,7 +73,7 @@ public class DeleteFileStrategy implements IStrategy {
         result.add(Optional.empty());
         Document doc = update.getMessage().getDocument();
         String mimeName = doc.getMimeType();
-        String fileName = doc.getFileName();
+        String fileName = doc.getFileName().toLowerCase();
         if (!(mimeName.equals(MP3_MIME) || mimeName.equals(MP4_MIME) || mimeName.equals(MPEG_MIME)
                 || mimeName.equals(PDF_MIME) || mimeName.equals(PNG_MIME) || mimeName.equals(JPEG_MIME)
                 || mimeName.equals(GIF_MIME) || mimeName.equals(TXT_MIME)) || !(fileName.endsWith(MP3)
