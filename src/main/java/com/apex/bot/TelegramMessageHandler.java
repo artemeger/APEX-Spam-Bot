@@ -40,23 +40,35 @@ public class TelegramMessageHandler extends ATelegramBot {
 
     private static final List<Integer> WHITELIST = Arrays.asList(512328408, 521684737, 533756221, 331773699, 516271269, 497516201, 454184647, 32845648);
     private static final List<Long> CHAT = Arrays.asList(-1001472315014L);
-    private static final String REGEX = "[^a-zA-Z0-9]";
-    private static final String INTRO = "Lets begin! \n";
+    private static final String REGEX = "[^a-zA-Z0-9 ]";
+    private static final String INTRO = "Lets begin!";
     private static final String OUTRO = "The Quiz has finished. Thank you for participating!";
-    private AtomicBoolean quizStartedLock = new AtomicBoolean(false);
-    private AtomicBoolean currentQuestionIsAnswered = new AtomicBoolean(true);
+    private AtomicBoolean quizStartedLock;
+    private AtomicBoolean currentQuestionIsAnswered;
     private Map<String, Object> qMap;
-    private HashMap<Integer, Integer> resultMap = new HashMap<>();
-    private HashMap<Integer, String> userNameMap = new HashMap<>();
-    private String currentAnswer = "";
-    private int iterator = 1;
+    private HashMap<Integer, Integer> resultMap;
+    private HashMap<Integer, String> userNameMap;
+    private ArrayList<String> keywords;
+    private String currentAnswer;
+    private int iterator;
 
 
     TelegramMessageHandler(String token, String botname) throws IOException {
         super(token, botname);
+        setup();
+    }
+
+    private void setup() throws IOException {
         String content = new String(Files.readAllBytes(Paths.get("questions.json")));
         JSONObject questions = new JSONObject(content);
         qMap = questions.toMap();
+        quizStartedLock = new AtomicBoolean(false);
+        currentQuestionIsAnswered = new AtomicBoolean(true);
+        resultMap = new HashMap<>();
+        userNameMap = new HashMap<>();
+        keywords = new ArrayList<>();
+        currentAnswer = "";
+        iterator = 1;
     }
 
     @Override
@@ -75,39 +87,51 @@ public class TelegramMessageHandler extends ATelegramBot {
                         if (msg.contains("!start")) {
                             if(!quizStartedLock.get()) {
                                 quizStartedLock.set(true);
-                                SendMessage sendMessage = new SendMessage();
-                                sendMessage.setChatId(chatId);
-                                sendMessage.setText(INTRO);
-                                execute(sendMessage);
+                                execute(startQuiz(chatId));
                                 execute(nextQuestion(chatId, qMap.keySet().iterator().next()));
                             }
                         } else if (msg.contains("!next")) {
-                            if(currentQuestionIsAnswered.get() && qMap.size() > 0)
+                            if(quizStartedLock.get() && currentQuestionIsAnswered.get() && qMap.size() > 0)
+                            execute(nextQuestion(chatId, qMap.keySet().iterator().next()));
+                        } else if (msg.contains("!reset_the_quiz")) {
+                            setup();
+                            quizStartedLock.set(true);
+                            execute(startQuiz(chatId));
                             execute(nextQuestion(chatId, qMap.keySet().iterator().next()));
                         } else if (msg.contains("!result")) {
                             SendMessage resultMessage = new SendMessage();
                             resultMessage.setChatId(chatId);
                             String standings;
                             if(qMap.size() > 0)
-                                standings = "CURRENT ONGOING STANDINGS:\n";
+                                standings = "CURRENT ONGOING STANDINGS\n";
                             else
-                                standings = "FINAL STANDINGS:\n";
+                                standings = "FINAL STANDINGS\n";
                             Map<Integer, Integer> sortedMap = resultMap
                                     .entrySet()
                                     .stream()
-                                    .sorted(Map.Entry.comparingByValue())
+                                    .sorted(Collections.reverseOrder(Map.Entry.comparingByValue()))
                                     .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue, (e1, e2) -> e2,
                                             LinkedHashMap::new));
                             int counter = 1;
                             for(int userId : sortedMap.keySet()){
-                                standings += counter + ". " + userNameMap.get(userId) + " --> " + resultMap.get(userId);
+                                standings += counter + ". " + userNameMap.get(userId) + "   < "+resultMap.get(userId)+" >\n";
+                                counter ++;
                             }
                             resultMessage.setText(standings);
                             execute(resultMessage);
                         }
                     }
+
                     String cleanedUpMsg = msg.toLowerCase().replaceAll(REGEX, "");
-                    if(cleanedUpMsg.equals(currentAnswer.toLowerCase().replaceAll(REGEX, "")) && quizStartedLock.get()){
+
+                    ArrayList<String> passedAnswer =  new ArrayList<>(Arrays.asList(cleanedUpMsg.split(" ")));
+                    int countKeyWords = 0;
+                    for(String word : keywords){
+                        if(passedAnswer.contains(word))
+                            countKeyWords++;
+                    }
+
+                    if(countKeyWords >= keywords.size() && quizStartedLock.get()){
                         if(!currentQuestionIsAnswered.get()) {
                             if (resultMap.containsKey(user.getId())) {
                                 resultMap.put(user.getId(), resultMap.get(user.getId()) + 1);
@@ -121,7 +145,7 @@ public class TelegramMessageHandler extends ATelegramBot {
                             SendMessage sendSuccess = new SendMessage();
                             sendSuccess.setChatId(chatId);
                             sendSuccess.setText("Well done " + user.getFirstName() + "!\n" +
-                                    "\"" + currentAnswer + "\" was the right answer. You get the point for that.");
+                                    "\"" + msg + "\" was the right answer. You get the point for that.");
                             execute(sendSuccess);
                             currentQuestionIsAnswered.set(true);
                         }
@@ -134,7 +158,10 @@ public class TelegramMessageHandler extends ATelegramBot {
                     }
                 }
             }
-        } catch (Exception e) {}
+        } catch (Exception e) {
+            log.error(e.getMessage());
+            log.error(e.getStackTrace().toString());
+        }
     }
 
     private SendMessage nextQuestion(long chatId, String question){
@@ -142,9 +169,17 @@ public class TelegramMessageHandler extends ATelegramBot {
         sendMessage.setChatId(chatId);
         sendMessage.setText("Question "+ iterator + ":\n" + question);
         currentAnswer = (String) qMap.get(question);
+        keywords = new ArrayList<>(Arrays.asList(currentAnswer.toLowerCase().replaceAll(REGEX, "").split(" ")));
         currentQuestionIsAnswered.set(false);
         qMap.remove(question);
         iterator ++;
+        return sendMessage;
+    }
+
+    private SendMessage startQuiz(long chatId){
+        SendMessage sendMessage = new SendMessage();
+        sendMessage.setChatId(chatId);
+        sendMessage.setText(INTRO);
         return sendMessage;
     }
 
