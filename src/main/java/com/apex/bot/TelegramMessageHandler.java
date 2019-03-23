@@ -24,142 +24,128 @@
 
 package com.apex.bot;
 
-import com.apex.objects.Feedback;
-import com.apex.strategy.CommandStrategy;
-import com.apex.strategy.DeleteFileStrategy;
-import com.apex.strategy.DeleteLinksStrategy;
-import com.apex.strategy.IStrategy;
-import org.mapdb.DB;
-import org.mapdb.DBMaker;
-import org.telegram.telegrambots.meta.api.methods.BotApiMethod;
-import org.telegram.telegrambots.meta.api.methods.groupadministration.KickChatMember;
-import org.telegram.telegrambots.meta.api.methods.updatingmessages.DeleteMessage;
-import org.telegram.telegrambots.meta.api.objects.CallbackQuery;
+import org.json.JSONObject;
+import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
 import org.telegram.telegrambots.meta.api.objects.Update;
 import org.telegram.telegrambots.meta.api.objects.User;
-import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
-import java.math.BigDecimal;
-import java.time.Instant;
+
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.util.*;
-import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.stream.Collectors;
 
 public class TelegramMessageHandler extends ATelegramBot {
 
-    private IStrategy deleteFile = new DeleteFileStrategy();
-    private IStrategy deleteLinks = new DeleteLinksStrategy();
-    private IStrategy runCommand = new CommandStrategy();
-    private static final List<Integer> WHITELIST = Arrays.asList(512328408, 521684737, 533756221, 331773699, 516271269, 497516201, 454184647);
-    private static final List<Long> CHAT = Arrays.asList(-1001385910531L, -1001175224299L, -1001417745659L);
-    public static final long VERIFICATON = -1001417745659L;
+    private static final List<Integer> WHITELIST = Arrays.asList(512328408, 521684737, 533756221, 331773699, 516271269, 497516201, 454184647, 32845648);
+    private static final List<Long> CHAT = Arrays.asList(-1001472315014L);
+    private static final String REGEX = "[^a-zA-Z0-9]";
+    private static final String INTRO = "Lets begin! \n";
+    private static final String OUTRO = "The Quiz has finished. Thank you for participating!";
+    private AtomicBoolean quizStartedLock = new AtomicBoolean(false);
+    private AtomicBoolean currentQuestionIsAnswered = new AtomicBoolean(true);
+    private Map<String, Object> qMap;
+    private HashMap<Integer, Integer> resultMap = new HashMap<>();
+    private HashMap<Integer, String> userNameMap = new HashMap<>();
+    private String currentAnswer = "";
+    private int iterator = 1;
 
-    TelegramMessageHandler(String token, String botname) {
+
+    TelegramMessageHandler(String token, String botname) throws IOException {
         super(token, botname);
+        String content = new String(Files.readAllBytes(Paths.get("questions.json")));
+        JSONObject questions = new JSONObject(content);
+        qMap = questions.toMap();
     }
 
     @Override
     @SuppressWarnings("unchecked")
     public void onUpdateReceived(Update update) {
-
         try {
-
-            if(update.hasCallbackQuery()){
-                try {
-                    CallbackQuery query = update.getCallbackQuery();
-                    String callbackData = query.getData();
-                    if(callbackData != null && !callbackData.equals("false")){
-
-                        String [] arg = callbackData.split(",");
-
-                        DB database = DBMaker.fileDB("file.db").checksumHeaderBypass().make();
-                        ConcurrentMap map = database.hashMap("feedback").createOrOpen();
-                        Feedback feedback = (Feedback) map.get(arg[1]);
-                        database.close();
-
-                        if(arg[0].equals("blacklist")) {
-                            database = DBMaker.fileDB("file.db").checksumHeaderBypass().make();
-                            ConcurrentMap mapUrlBlackList = database.hashMap("urlBlackList").createOrOpen();
-                            mapUrlBlackList.put(feedback.getDataToBan(), feedback.getUserId());
-                            database.close();
-                        }
-
-                        try {
-                            KickChatMember ban = new KickChatMember();
-                            ban.setUserId(feedback.getUserId());
-                            ban.setChatId(feedback.getChatId());
-                            ban.setUntilDate(new BigDecimal(Instant.now().getEpochSecond()).intValue());
-                            execute(ban);
-                        } catch (Exception e){
-                            log.info("Cant ban - User already deleted");
-                        }
-                    }
-
-                    DeleteMessage deleteMessage = new DeleteMessage(VERIFICATON,  query.getMessage().getMessageId());
-                    execute(deleteMessage);
-                } catch (Exception e){
-                    log.error("Error in Callback");
-                    log.error(e.getMessage());
-                }
-            }
-
             if (CHAT.contains(update.getMessage().getChatId())) {
-                if (update.getMessage().getNewChatMembers() != null) {
-                    DB database = DBMaker.fileDB("file.db").checksumHeaderBypass().make();
-                    ConcurrentMap userMap = database.hashMap("user").createOrOpen();
-                    for (User user : update.getMessage().getNewChatMembers()) {
-                        userMap.put(user.getId(), Instant.now().getEpochSecond());
-                    }
-                    database.close();
-                    log.info("Added User");
-                }
 
                 int from = update.getMessage().getFrom().getId();
-                ArrayList<Optional<BotApiMethod>> commands;
 
                 if(update.hasMessage()) {
+                    String msg = update.getMessage().getText();
+                    long chatId = update.getMessage().getChatId();
+                    User user = update.getMessage().getFrom();
                     if (WHITELIST.contains(from)) {
-                        commands = runCommand.runStrategy(update);
-                        for (Optional<BotApiMethod> method : commands) {
-                            method.ifPresent(command -> {
-                                try {
-                                    execute(command);
-                                    log.info("Command fired");
-                                } catch (TelegramApiException e) {
-                                    log.error("Failed execute Command" + e.getMessage());
-                                }
-                            });
-                        }
-                    }
-                }
-
-                if (!WHITELIST.contains(from)) {
-                    if (update.getMessage().hasDocument()) {
-                        commands = deleteFile.runStrategy(update);
-                        for (Optional<BotApiMethod> method : commands) {
-                            method.ifPresent(delete -> {
-                                try {
-                                    execute(delete);
-                                    log.info("Deleted File");
-                                } catch (TelegramApiException e) {
-                                    log.error("Failed to delete File" + e.getMessage());
-                                }
-                            });
-                        }
-                    }
-
-                    commands = deleteLinks.runStrategy(update);
-                    for (Optional<BotApiMethod> method : commands) {
-                        method.ifPresent(delete -> {
-                            try {
-                                execute(delete);
-                                log.info("Deleted Link");
-                            } catch (TelegramApiException e) {
-                                log.error("Failed to delete Link" + e.getMessage());
+                        if (msg.contains("!start")) {
+                            if(!quizStartedLock.get()) {
+                                quizStartedLock.set(true);
+                                SendMessage sendMessage = new SendMessage();
+                                sendMessage.setChatId(chatId);
+                                sendMessage.setText(INTRO);
+                                execute(sendMessage);
+                                execute(nextQuestion(chatId, qMap.keySet().iterator().next()));
                             }
-                        });
+                        } else if (msg.contains("!next")) {
+                            if(currentQuestionIsAnswered.get() && qMap.size() > 0)
+                            execute(nextQuestion(chatId, qMap.keySet().iterator().next()));
+                        } else if (msg.contains("!result")) {
+                            SendMessage resultMessage = new SendMessage();
+                            resultMessage.setChatId(chatId);
+                            String standings;
+                            if(qMap.size() > 0)
+                                standings = "CURRENT ONGOING STANDINGS:\n";
+                            else
+                                standings = "FINAL STANDINGS:\n";
+                            Map<Integer, Integer> sortedMap = resultMap
+                                    .entrySet()
+                                    .stream()
+                                    .sorted(Map.Entry.comparingByValue())
+                                    .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue, (e1, e2) -> e2,
+                                            LinkedHashMap::new));
+                            int counter = 1;
+                            for(int userId : sortedMap.keySet()){
+                                standings += counter + ". " + userNameMap.get(userId) + " --> " + resultMap.get(userId);
+                            }
+                            resultMessage.setText(standings);
+                            execute(resultMessage);
+                        }
+                    }
+                    String cleanedUpMsg = msg.toLowerCase().replaceAll(REGEX, "");
+                    if(cleanedUpMsg.equals(currentAnswer.toLowerCase().replaceAll(REGEX, "")) && quizStartedLock.get()){
+                        if(!currentQuestionIsAnswered.get()) {
+                            if (resultMap.containsKey(user.getId())) {
+                                resultMap.put(user.getId(), resultMap.get(user.getId()) + 1);
+                            }
+                            else{
+                                resultMap.put(user.getId(), 1);
+                                if(user.getLastName() != null)
+                                userNameMap.put(user.getId(), user.getFirstName() + " " + user.getLastName());
+                                else userNameMap.put(user.getId(), user.getFirstName());
+                            }
+                            SendMessage sendSuccess = new SendMessage();
+                            sendSuccess.setChatId(chatId);
+                            sendSuccess.setText("Well done " + user.getFirstName() + "!\n" +
+                                    "\"" + currentAnswer + "\" was the right answer. You get the point for that.");
+                            execute(sendSuccess);
+                            currentQuestionIsAnswered.set(true);
+                        }
+                        if(qMap.size() == 0){
+                            SendMessage sendFinished = new SendMessage();
+                            sendFinished.setChatId(chatId);
+                            sendFinished.setText(OUTRO);
+                            execute(sendFinished);
+                        }
                     }
                 }
             }
-
         } catch (Exception e) {}
     }
+
+    private SendMessage nextQuestion(long chatId, String question){
+        SendMessage sendMessage = new SendMessage();
+        sendMessage.setChatId(chatId);
+        sendMessage.setText("Question "+ iterator + ":\n" + question);
+        currentAnswer = (String) qMap.get(question);
+        currentQuestionIsAnswered.set(false);
+        qMap.remove(question);
+        iterator ++;
+        return sendMessage;
+    }
+
 }

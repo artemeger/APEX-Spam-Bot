@@ -58,7 +58,6 @@
     <properties>
         <telegram.bot.version>4.1</telegram.bot.version>
         <logback.version>1.2.3</logback.version>
-        <mapdb.version>3.0.7</mapdb.version>
     </properties>
 
     <dependencies>
@@ -73,12 +72,6 @@
             <groupId>ch.qos.logback</groupId>
             <artifactId>logback-classic</artifactId>
             <version>${logback.version}</version>
-        </dependency>
-
-        <dependency>
-            <groupId>org.mapdb</groupId>
-            <artifactId>mapdb</artifactId>
-            <version>${mapdb.version}</version>
         </dependency>
 
     </dependencies>
