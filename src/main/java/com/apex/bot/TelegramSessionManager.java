@@ -32,7 +32,7 @@ import org.telegram.telegrambots.meta.exceptions.TelegramApiRequestException;
 import org.telegram.telegrambots.meta.generics.BotSession;
 import org.telegram.telegrambots.meta.generics.LongPollingBot;
 
-public class TelegramSessionManager implements IRunWithOwnThread{
+public class TelegramSessionManager implements IRunWithOwnThread {
 
     private TelegramBotsApi botsApi;
     private BotSession session;

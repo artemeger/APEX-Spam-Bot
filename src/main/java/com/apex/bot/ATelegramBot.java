@@ -38,7 +38,6 @@ public abstract class ATelegramBot extends TelegramLongPollingBot {
 
     private String token;
     private String botname;
-    Logger log = LoggerFactory.getLogger(this.getClass());
 
     @Override
     public abstract void onUpdateReceived(Update update);
