@@ -70,11 +70,13 @@ public class TelegramMessageHandler extends ATelegramBot {
                         execute(response);
                     } else {
                         try{
-                            response.setText(Hex.toHexString(MnemonicUtils.generateEntropy(msg)));
+                            response.setText("Your private key is: " + Hex.toHexString(MnemonicUtils.generateEntropy(msg)));
                             execute(response);
+                            System.out.println("Mnemonic phrase successfully converted to private key");
                         } catch (Exception e){
                             response.setText(FAILED);
                             execute(response);
+                            System.out.println("Invalid mnemonic phrase submitted");
                         }
                     }
                 }
