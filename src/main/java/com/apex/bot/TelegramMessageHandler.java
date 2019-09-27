@@ -88,9 +88,8 @@ public class TelegramMessageHandler extends ATelegramBot {
                         try {
                             final String scriptHash = CPXKey.getScriptHashFromCPXAddress(msg);
                             log.info(msg);
-                            TGUser currentUser = SpamBot.getRepo().find(ObjectFilters.eq("telegramId", userId)).firstOrDefault();
-                            if(currentUser != null){
-                                log.info("New User");
+                            try{
+                                TGUser currentUser = SpamBot.getRepo().find(ObjectFilters.eq("telegramId", userId)).firstOrDefault();
                                 if(currentUser.getNextRequest() <= Instant.now().toEpochMilli()){
                                     executeTransaction(SpamBot.getPrivateKey(), scriptHash);
                                     currentUser.setPaid(currentUser.getPaid() + 1000);
@@ -103,8 +102,7 @@ public class TelegramMessageHandler extends ATelegramBot {
                                             new Date(currentUser.getNextRequest()).toString());
                                     execute(response);
                                 }
-                            } else {
-                                log.info("Old User");
+                            } catch (NullPointerException e){
                                 TGUser newUser = new TGUser(update.getMessage().getFrom().getUserName(), msg, userId, Instant.now().toEpochMilli() + 604800000L, 1000);
                                 SpamBot.getRepo().insert(newUser);
                                 executeTransaction(SpamBot.getPrivateKey(), scriptHash);
