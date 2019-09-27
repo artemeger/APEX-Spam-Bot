@@ -65,13 +65,14 @@
     <properties>
         <telegram.bot.version>4.1</telegram.bot.version>
         <logback.version>1.2.3</logback.version>
+        <nitrite.version>3.2.0</nitrite.version>
     </properties>
 
     <dependencies>
         <dependency>
             <groupId>com.github.APEX-Network</groupId>
             <artifactId>APEX-Java-SDK</artifactId>
-            <version>d40643d32d5511a4cc6db3544460b5a1d194f1b5</version>
+            <version>91f87c9ada9a5d65d6ef81db8c840ead7e948545</version>
         </dependency>
         <dependency>
             <groupId>org.telegram</groupId>
@@ -82,6 +83,11 @@
             <groupId>ch.qos.logback</groupId>
             <artifactId>logback-classic</artifactId>
             <version>${logback.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.dizitart</groupId>
+            <artifactId>nitrite</artifactId>
+            <version>${nitrite.version}</version>
         </dependency>
     </dependencies>
     
