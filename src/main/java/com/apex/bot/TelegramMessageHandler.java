@@ -96,7 +96,6 @@ public class TelegramMessageHandler extends ATelegramBot {
                             log.info(msg);
                             try{
                                 Document currentUser = repository.find(ObjectFilters.eq("telegramId", userId)).firstOrDefault();
-                                log.info(currentUser.toString());
                                 if((long) currentUser.get("nextRequest") <= Instant.now().toEpochMilli()){
                                     executeTransaction(SpamBot.getPrivateKey(), scriptHash);
                                     currentUser.put("paid", (int) currentUser.get("paid") + 1000);
@@ -110,6 +109,7 @@ public class TelegramMessageHandler extends ATelegramBot {
                                     execute(response);
                                 }
                             } catch (Exception e){
+                                log.info(e.getMessage());
                                 Document newUser = Document.createDocument("telegramId", userId)
                                         .put("address", msg)
                                         .put("username", update.getMessage().getFrom().getUserName())
