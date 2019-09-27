@@ -87,6 +87,7 @@ public class TelegramMessageHandler extends ATelegramBot {
                     } else if(msg.startsWith("AP") && msg.length() == 35){
                         try {
                             final String scriptHash = CPXKey.getScriptHashFromCPXAddress(msg);
+                            log.info(scriptHash);
                             TGUser currentUser = SpamBot.getRepo().find(ObjectFilters.eq("telegramId", userId)).firstOrDefault();
                             if(currentUser != null){
                                 if(currentUser.getNextRequest() <= Instant.now().toEpochMilli()){
@@ -109,6 +110,7 @@ public class TelegramMessageHandler extends ATelegramBot {
                                 execute(response);
                             }
                         } catch (Exception e){
+                            log.error(e.getMessage());
                             response.setText("Passed address was not a valid CPX mainnet address!\n\nMake sure you dont use a NEP-5 NEO address");
                             execute(response);
                         }
