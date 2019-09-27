@@ -66,9 +66,9 @@ public class TelegramMessageHandler extends ATelegramBot {
     private NitriteCollection repository;
 
     private static final String START = "Welcome to the APEX Network blockchain distribution bot\n\n" +
-            "The purpose of this bot is to allow community members and others wanting to explore the different functionalities of the blockchain to eaily request a batch of CPX test coins to be delivered to their APEX public address\n\n" +
-            "- Before you request your CPX, you must have an APEX public address. This can easily be created on our web wallet integrated in the blockchain explorer at tracker.apexnetwork.io\n\n" +
-            "- The limit per address is 1000 CPX per week, 1000 CPX will be distributed to your APEX public address immediately, and if needed more can be requested 7 days later.\n\n" +
+            "The purpose of this bot is to allow community members and others wanting to explore the different functionalities of the blockchain to easily request a batch of precious CPX test coins to be delivered to their APEX public address\n\n" +
+            "- Before you request your precious CPX, you must have an APEX public address. This can easily be created on our web wallet integrated in the blockchain explorer at tracker.apexnetwork.io\n\n" +
+            "- The limit per address is 1000 precious CPX per week - They will be distributed to your APEX public address immediately, and if needed more can be requested 7 days later.\n\n" +
             "- The CPX can be used for sending transactions, voting, refunding votes and playing games on the APEX Network blockchain\n\n" +
             "To proceed, simply copy and paste your APEX Network public address to the bot, funds will be visible in your address on tracker.apexnetwork.io shortly after!\n\n" +
             "Our APEX Network blackjack game can be found at http://blackjack.apexnetwork.io";
@@ -107,7 +107,7 @@ public class TelegramMessageHandler extends ATelegramBot {
                                     response.setText("Success! I have transferred 1000 CPX to: " + msg);
                                     execute(response);
                                 } else {
-                                    response.setText("You have reached your request limit.\n\nNext transfer will be available after " +
+                                    response.setText("You had enough of my precious CPX already you smelly hobbit!\n\nNext transfer will be available after " +
                                             new Date((long) currentUser.get("nextRequest")).toString());
                                     execute(response);
                                 }
