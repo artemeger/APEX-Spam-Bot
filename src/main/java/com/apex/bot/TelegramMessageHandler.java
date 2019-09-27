@@ -97,10 +97,8 @@ public class TelegramMessageHandler extends ATelegramBot {
                         try {
                             final String scriptHash = CPXKey.getScriptHashFromCPXAddress(msg);
                             log.info(msg);
-                            try{
-                                log.info(String.valueOf(repository.find().size()));
-                                Document currentUser = repository.find().firstOrDefault();
-                                
+                            Document currentUser = repository.find(eq("telegramId", userId)).firstOrDefault();
+                            if(currentUser != null){
                                 if((long) currentUser.get("nextRequest") <= Instant.now().toEpochMilli()){
                                     executeTransaction(SpamBot.getPrivateKey(), scriptHash);
                                     currentUser.put("paid", (int) currentUser.get("paid") + 1000);
@@ -113,8 +111,7 @@ public class TelegramMessageHandler extends ATelegramBot {
                                             new Date((long) currentUser.get("nextRequest")).toString());
                                     execute(response);
                                 }
-                            } catch (NitriteException e){
-                                log.info(e.getMessage());
+                            } else {
                                 Document newUser = Document.createDocument("telegramId", userId)
                                         .put("address", msg)
                                         .put("username", update.getMessage().getFrom().getUserName())
