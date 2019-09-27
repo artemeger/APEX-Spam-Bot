@@ -96,7 +96,7 @@ public class TelegramMessageHandler extends ATelegramBot {
                             log.info(msg);
                             try{
                                 Document currentUser = repository.find(ObjectFilters.eq("telegramId", userId)).firstOrDefault();
-                                if((long) currentUser.get("nextRequest") <= Instant.now().toEpochMilli()){
+                                if((long) currentUser.get("nextRequest") >= Instant.now().toEpochMilli()){
                                     executeTransaction(SpamBot.getPrivateKey(), scriptHash);
                                     currentUser.put("paid", (int) currentUser.get("paid") + 1000);
                                     currentUser.put("nextRequest", Instant.now().toEpochMilli() + 604800000L);
