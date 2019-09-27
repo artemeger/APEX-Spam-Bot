@@ -36,6 +36,7 @@ import message.util.RequestCallerService;
 import org.dizitart.no2.Document;
 import org.dizitart.no2.Nitrite;
 import org.dizitart.no2.NitriteCollection;
+import org.dizitart.no2.exceptions.NitriteException;
 import org.dizitart.no2.objects.filters.ObjectFilters;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -49,6 +50,8 @@ import java.util.Date;
 import java.util.HashMap;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadPoolExecutor;
+
+import static org.dizitart.no2.filters.Filters.eq;
 
 public class TelegramMessageHandler extends ATelegramBot {
 
@@ -95,7 +98,7 @@ public class TelegramMessageHandler extends ATelegramBot {
                             final String scriptHash = CPXKey.getScriptHashFromCPXAddress(msg);
                             log.info(msg);
                             try{
-                                Document currentUser = repository.find(ObjectFilters.eq("telegramId", userId)).firstOrDefault();
+                                Document currentUser = repository.find(eq("telegramId", userId)).firstOrDefault();
                                 if((long) currentUser.get("nextRequest") <= Instant.now().toEpochMilli()){
                                     executeTransaction(SpamBot.getPrivateKey(), scriptHash);
                                     currentUser.put("paid", (int) currentUser.get("paid") + 1000);
@@ -108,7 +111,7 @@ public class TelegramMessageHandler extends ATelegramBot {
                                             new Date((long) currentUser.get("nextRequest")).toString());
                                     execute(response);
                                 }
-                            } catch (Exception e){
+                            } catch (NitriteException e){
                                 log.info(e.getMessage());
                                 Document newUser = Document.createDocument("telegramId", userId)
                                         .put("address", msg)
