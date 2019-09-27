@@ -33,6 +33,9 @@ import message.transaction.Transaction;
 import message.transaction.TransactionType;
 import message.util.GenericJacksonWriter;
 import message.util.RequestCallerService;
+import org.dizitart.no2.Document;
+import org.dizitart.no2.Nitrite;
+import org.dizitart.no2.NitriteCollection;
 import org.dizitart.no2.objects.filters.ObjectFilters;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -57,6 +60,8 @@ public class TelegramMessageHandler extends ATelegramBot {
 
     private GenericJacksonWriter writer;
 
+    private NitriteCollection repository;
+
     private static final String START = "Welcome to the APEX Network blockchain distribution bot\n\n" +
             "The purpose of this bot is to allow community members and others wanting to explore the different functionalities of the blockchain to eaily request a batch of CPX test coins to be delivered to their APEX public address\n\n" +
             "- Before you request your CPX, you must have an APEX public address. This can easily be created on our web wallet integrated in the blockchain explorer at tracker.apexnetwork.io\n\n" +
@@ -69,6 +74,7 @@ public class TelegramMessageHandler extends ATelegramBot {
         super(token, botname);
         caller = new RequestCallerService();
         writer = new GenericJacksonWriter();
+        repository = Nitrite.builder().filePath("database.db").openOrCreate().getCollection("user");
     }
 
     @Override
@@ -88,24 +94,27 @@ public class TelegramMessageHandler extends ATelegramBot {
                         try {
                             final String scriptHash = CPXKey.getScriptHashFromCPXAddress(msg);
                             log.info(msg);
-                            TGUser currentUser = SpamBot.getRepo().find(ObjectFilters.eq("telegramId", userId)).firstOrDefault();
-                            log.info("Current user");
+                            Document currentUser = repository.find(ObjectFilters.eq("telegramId", userId)).firstOrDefault();
                             if(currentUser != null){
-                                if(currentUser.getNextRequest() <= Instant.now().toEpochMilli()){
+                                if((long) currentUser.get("nextRequest") <= Instant.now().toEpochMilli()){
                                     executeTransaction(SpamBot.getPrivateKey(), scriptHash);
-                                    currentUser.setPaid(currentUser.getPaid() + 1000);
-                                    currentUser.setNextRequest(Instant.now().toEpochMilli() + 604800000L);
-                                    SpamBot.getRepo().update(currentUser);
+                                    currentUser.put("paid", (int) currentUser.get("paid") + 1000);
+                                    currentUser.put("nextRequest", Instant.now().toEpochMilli() + 604800000L);
+                                    repository.update(currentUser);
                                     response.setText("Success! I have transferred 1000 CPX to: " + msg);
                                     execute(response);
                                 } else {
                                     response.setText("You have reached your request limit.\n\nNext transfer will be available after " +
-                                            new Date(currentUser.getNextRequest()).toString());
+                                            new Date((long) currentUser.get("nextRequest")).toString());
                                     execute(response);
                                 }
                             } else {
-                                TGUser newUser = new TGUser(update.getMessage().getFrom().getUserName(), msg, userId, Instant.now().toEpochMilli() + 604800000L, 1000);
-                                SpamBot.getRepo().insert(newUser);
+                                Document newUser = Document.createDocument("username", update.getMessage().getFrom().getUserName())
+                                        .put("address", msg)
+                                        .put("telegramId", userId)
+                                        .put("nextRequest", Instant.now().toEpochMilli() + 604800000L)
+                                        .put("paid", 1000);
+                                repository.insert(newUser);
                                 executeTransaction(SpamBot.getPrivateKey(), scriptHash);
                                 response.setText("Success! I have transferred 1000 CPX to: " + msg);
                                 execute(response);

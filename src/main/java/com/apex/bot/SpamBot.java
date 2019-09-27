@@ -44,12 +44,6 @@ public class SpamBot {
     private static String rpcUrl;
     private static ECPrivateKey privateKey;
     private final static CryptoService crypto = new CryptoService();
-    private static ObjectRepository<TGUser> repository;
-
-    public SpamBot(){
-        repository = Nitrite.builder().filePath("database.db")
-                .openOrCreate().getRepository(TGUser.class);
-    }
 
     public static void main(String[] args){
         TelegramSessionManager telegramSessionManager = new TelegramSessionManager();
@@ -84,10 +78,6 @@ public class SpamBot {
 
     public static CryptoService getCrypto() {
         return crypto;
-    }
-
-    public static ObjectRepository<TGUser> getRepo() {
-        return repository;
     }
 
 }
