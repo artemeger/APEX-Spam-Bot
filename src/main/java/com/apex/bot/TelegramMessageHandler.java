@@ -35,22 +35,24 @@ import java.nio.file.Paths;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
+@SuppressWarnings("unchecked")
 public class TelegramMessageHandler extends ATelegramBot {
 
-    private static final List<Integer> WHITELIST = Arrays.asList(512328408, 521684737, 533756221, 331773699, 516271269, 497516201, 454184647, 32845648);
-    private static final List<Long> CHAT = Arrays.asList(-1001472315014L);
-    private static final String REGEX = "[^a-zA-Z0-9 ]";
-    private static final String INTRO = "Lets begin!";
-    private static final String OUTRO = "The Quiz has finished. Thank you for participating!";
+    private String REGEX = "[^a-zA-Z0-9 ]";
+    private List<Integer> whitelist;
+    private long chat;
+    private String intro;
+    private String outro;
     private AtomicBoolean quizStartedLock;
     private AtomicBoolean currentQuestionIsAnswered;
-    private Map<String, Object> qMap;
+    private ArrayList<Map<String, Object>> questionsList;
     private HashMap<Integer, Integer> resultMap;
     private HashMap<Integer, String> userNameMap;
     private ArrayList<String> keywords;
-    private String currentAnswer;
     private int iterator;
+    private int threshold;
 
 
     TelegramMessageHandler(String token, String botname) throws IOException {
@@ -59,53 +61,50 @@ public class TelegramMessageHandler extends ATelegramBot {
     }
 
     private void setup() throws IOException {
-        String content = new String(Files.readAllBytes(Paths.get("questions.json")));
-        JSONObject questions = new JSONObject(content);
-        qMap = questions.toMap();
+        iterator = 1;
+        threshold = 0;
         quizStartedLock = new AtomicBoolean(false);
         currentQuestionIsAnswered = new AtomicBoolean(true);
+        questionsList = new ArrayList<>();
         resultMap = new HashMap<>();
         userNameMap = new HashMap<>();
         keywords = new ArrayList<>();
-        currentAnswer = "";
-        iterator = 1;
+
+        final JSONObject questions = new JSONObject(new String(Files.readAllBytes(Paths.get("questions.json"))));
+        questions.toMap().values().forEach(q -> questionsList.add((Map<String, Object>)q));
+        final JSONObject config = new JSONObject(new String(Files.readAllBytes(Paths.get("token.json"))));
+        whitelist = (List<Integer>) config.toMap().get("whitelist");
+        chat = (long) config.toMap().get("chat");
+        intro = (String) config.toMap().get("intro");
+        outro = (String) config.toMap().get("outro");
     }
 
     @Override
-    @SuppressWarnings("unchecked")
     public void onUpdateReceived(Update update) {
         try {
-            if (CHAT.contains(update.getMessage().getChatId())) {
-
+            if (update.getMessage().getText() != null && chat == update.getMessage().getChatId()) {
                 int from = update.getMessage().getFrom().getId();
-
                 if(update.hasMessage()) {
                     String msg = update.getMessage().getText();
                     long chatId = update.getMessage().getChatId();
                     User user = update.getMessage().getFrom();
-                    if (WHITELIST.contains(from)) {
-                        if (msg.contains("!start")) {
-                            if(!quizStartedLock.get()) {
-                                quizStartedLock.set(true);
-                                execute(startQuiz(chatId));
-                                execute(nextQuestion(chatId, qMap.keySet().iterator().next()));
-                            }
-                        } else if (msg.contains("!next")) {
-                            if(quizStartedLock.get() && currentQuestionIsAnswered.get() && qMap.size() > 0)
-                            execute(nextQuestion(chatId, qMap.keySet().iterator().next()));
-                        } else if (msg.contains("!reset_the_quiz")) {
+                    if (whitelist.contains(from)) {
+                        if (msg.contains("!start") && !quizStartedLock.get()) {
+                            quizStartedLock.set(true);
+                            execute(startQuiz(chatId));
+                            execute(nextQuestion(chatId, questionsList.iterator().next()));
+                        } else if (msg.contains("!next") && quizStartedLock.get() &&
+                                currentQuestionIsAnswered.get() && !questionsList.isEmpty()) {
+                            execute(nextQuestion(chatId, questionsList.iterator().next()));
+                        } else if (msg.contains("!reset") && quizStartedLock.get()) {
                             setup();
                             quizStartedLock.set(true);
                             execute(startQuiz(chatId));
-                            execute(nextQuestion(chatId, qMap.keySet().iterator().next()));
-                        } else if (msg.contains("!result")) {
+                            execute(nextQuestion(chatId, questionsList.iterator().next()));
+                        } else if (msg.contains("!result") && quizStartedLock.get()) {
                             SendMessage resultMessage = new SendMessage();
                             resultMessage.setChatId(chatId);
-                            String standings;
-                            if(qMap.size() > 0)
-                                standings = "CURRENT ONGOING STANDINGS\n";
-                            else
-                                standings = "FINAL STANDINGS\n";
+                            String standings = questionsList.iterator().hasNext() ? "CURRENT ONGOING STANDINGS\n" : "FINAL STANDINGS\n";
                             Map<Integer, Integer> sortedMap = resultMap
                                     .entrySet()
                                     .stream()
@@ -114,7 +113,7 @@ public class TelegramMessageHandler extends ATelegramBot {
                                             LinkedHashMap::new));
                             int counter = 1;
                             for(int userId : sortedMap.keySet()){
-                                standings += counter + ". " + userNameMap.get(userId) + "   < "+resultMap.get(userId)+" >\n";
+                                standings += counter + ". " + userNameMap.get(userId) + "   <(( "+resultMap.get(userId)+" ))>\n";
                                 counter ++;
                             }
                             resultMessage.setText(standings);
@@ -131,7 +130,7 @@ public class TelegramMessageHandler extends ATelegramBot {
                             countKeyWords++;
                     }
 
-                    if(countKeyWords >= keywords.size() && quizStartedLock.get()){
+                    if(countKeyWords >= threshold && quizStartedLock.get()){
                         if(!currentQuestionIsAnswered.get()) {
                             if (resultMap.containsKey(user.getId())) {
                                 resultMap.put(user.getId(), resultMap.get(user.getId()) + 1);
@@ -149,10 +148,10 @@ public class TelegramMessageHandler extends ATelegramBot {
                             execute(sendSuccess);
                             currentQuestionIsAnswered.set(true);
                         }
-                        if(qMap.size() == 0){
+                        if(questionsList.isEmpty()){
                             SendMessage sendFinished = new SendMessage();
                             sendFinished.setChatId(chatId);
-                            sendFinished.setText(OUTRO);
+                            sendFinished.setText(outro);
                             execute(sendFinished);
                         }
                     }
@@ -160,18 +159,19 @@ public class TelegramMessageHandler extends ATelegramBot {
             }
         } catch (Exception e) {
             log.error(e.getMessage());
-            log.error(e.getStackTrace().toString());
+            Stream.of(e.getStackTrace()).forEach(stackTraceElement -> log.error(stackTraceElement.toString()));
         }
     }
 
-    private SendMessage nextQuestion(long chatId, String question){
+    private SendMessage nextQuestion(long chatId, Map<String, Object> question){
         SendMessage sendMessage = new SendMessage();
         sendMessage.setChatId(chatId);
-        sendMessage.setText("Question "+ iterator + ":\n" + question);
-        currentAnswer = (String) qMap.get(question);
+        sendMessage.setText("Question "+ iterator + ":\n" + question.get("question"));
+        threshold = (int) question.get("threshold");
+        String currentAnswer = (String) question.get("keywords");
         keywords = new ArrayList<>(Arrays.asList(currentAnswer.toLowerCase().replaceAll(REGEX, "").split(" ")));
         currentQuestionIsAnswered.set(false);
-        qMap.remove(question);
+        questionsList.remove(question);
         iterator ++;
         return sendMessage;
     }
@@ -179,7 +179,7 @@ public class TelegramMessageHandler extends ATelegramBot {
     private SendMessage startQuiz(long chatId){
         SendMessage sendMessage = new SendMessage();
         sendMessage.setChatId(chatId);
-        sendMessage.setText(INTRO);
+        sendMessage.setText(intro);
         return sendMessage;
     }
 

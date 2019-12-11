@@ -1,5 +1,67 @@
-{ "Who is honored as Father of Modern Chemistry?" : "Antoine Lavoisier",
-  "Who invented periodic table?" : "Dmitri Mendeleev",
-  "Which gases cause acid rain?" : "Sulphur dioxide, Nitrogen oxides",
-  "What is sodium carbonate commonly known as?" : "Washing soda",
-  "Which chemical was used earlier for giving anesthesia to patients?" : "Diethyl ether"}
+{
+  "1" : {
+    "question" : "What are Manzanilla, Petit Luques and Nyons types of?",
+    "keywords" : "Olive",
+    "threshold" : 1
+  },
+  "2" : {
+    "question" : "Which cocktail consists of Vodka, Tia Maria and Coke?",
+    "keywords" : "Black Russian",
+    "threshold" : 2
+  },
+  "3" : {
+    "question" : "What are the names of the Three Wise Men or The Three Kings ?",
+    "keywords" : "Caspar, Melchior, Balthasar",
+    "threshold" : 3
+  },
+  "4" : {
+    "question" : "Other than blue, which other colours are mentioned in the Elvis song 'Blue Christmas'?",
+    "keywords" : "Red, Green, White",
+    "threshold" : 3
+  },
+  "5" : {
+    "question" : "Which part of the body does the tragus belong to?",
+    "keywords" : "Ear",
+    "threshold" : 1
+  },
+  "6" : {
+    "question" : "What is the file format PDF short for?",
+    "keywords" : "Portable Document Format",
+    "threshold" : 3
+  },
+  "7" : {
+    "question" : "What was the worlds first nuclear powered aircraft carrier, still in use today?",
+    "keywords" : "USS Enterprise",
+    "threshold" : 2
+  },
+  "8" : {
+    "question" : "If you suffer from 'gymnophobia', what are you most afraid of?",
+    "keywords" : "Nudity, Nakedness",
+    "threshold" : 1
+  },
+  "9" : {
+    "question" : "How many consonants are there in the English Alphabet?",
+    "keywords" : "21",
+    "threshold" : 1
+  },
+  "10" : {
+    "question" : "Which is the only English football team to play in the Scottish league?",
+    "keywords" : "Berwick Rangers",
+    "threshold" : 2
+  },
+  "11" : {
+    "question" : "How many strings does a standard Spanish guitar have?",
+    "keywords" : "6, six",
+    "threshold" : 1
+  },
+  "12" : {
+    "question" : "Who wrote 'The Little Mermaid'?",
+    "keywords" : "Hans Christian Andersen",
+    "threshold" : 3
+  },
+  "13" : {
+    "question" : "What sports form an Olympic triathlon?",
+    "keywords" : "Swimming, cycling, running",
+    "threshold" : 3
+  }
+}

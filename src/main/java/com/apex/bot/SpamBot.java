@@ -30,6 +30,7 @@ import org.slf4j.LoggerFactory;
 
 import java.nio.file.Files;
 import java.nio.file.Paths;
+import java.util.Map;
 
 public class SpamBot {
 
@@ -41,8 +42,8 @@ public class SpamBot {
         try {
             String content = new String(Files.readAllBytes(Paths.get("token.json")));
             JSONObject questions = new JSONObject(content);
-            questions.toMap().get("token");
-            telegramSessionManager.addPollingBot(new TelegramMessageHandler((String)questions.toMap().get("token"), BOT_NAME));
+            Map<String, Object> map = questions.toMap();
+            telegramSessionManager.addPollingBot(new TelegramMessageHandler((String) map.get("token"), BOT_NAME));
             telegramSessionManager.start();
             LOG.info("Bot started");
             while (true){

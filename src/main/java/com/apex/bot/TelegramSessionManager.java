@@ -47,7 +47,7 @@ public class TelegramSessionManager implements IRunWithOwnThread{
         try {
             session = this.botsApi.registerBot(bot);
         } catch (TelegramApiRequestException e) {
-            log.error("Telegram Api bot registration failed", e.getApiResponse());
+            log.error("Telegram Api bot registration failed: " + e.getApiResponse());
         }
     }
 
@@ -62,4 +62,5 @@ public class TelegramSessionManager implements IRunWithOwnThread{
     public void stop() {
         session.stop();
     }
+
 }
