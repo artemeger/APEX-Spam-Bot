@@ -24,23 +24,30 @@
 
 package com.apex.bot;
 
+import org.json.JSONObject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.nio.file.Files;
+import java.nio.file.Paths;
+import java.util.Map;
+
 public class SpamBot {
 
-    private static final String BOT_TOKEN = "672381625:AAFDAgp8rDSjR_yLBFEPqg0KWOs6fStNXHw";
     private static final String BOT_NAME = "SpamBot";
     private static final Logger LOG = LoggerFactory.getLogger(SpamBot.class);
 
     public static void main(String[] args){
         TelegramSessionManager telegramSessionManager = new TelegramSessionManager();
         try {
-            telegramSessionManager.addPollingBot(new TelegramMessageHandler(BOT_TOKEN, BOT_NAME));
+            String content = new String(Files.readAllBytes(Paths.get("token.json")));
+            JSONObject questions = new JSONObject(content);
+            Map<String, Object> map = questions.toMap();
+            telegramSessionManager.addPollingBot(new TelegramMessageHandler((String) map.get("token"), BOT_NAME));
             telegramSessionManager.start();
             LOG.info("Bot started");
             while (true){
-                Thread.sleep(1500);
+                Thread.sleep(500);
             }
         } catch (Exception e) {
             LOG.error("Something went wrong: "+ e.getCause().getMessage());

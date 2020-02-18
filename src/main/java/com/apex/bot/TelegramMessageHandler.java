@@ -29,6 +29,7 @@ import com.apex.strategy.CommandStrategy;
 import com.apex.strategy.DeleteFileStrategy;
 import com.apex.strategy.DeleteLinksStrategy;
 import com.apex.strategy.IStrategy;
+import org.json.JSONObject;
 import org.mapdb.DB;
 import org.mapdb.DBMaker;
 import org.telegram.telegrambots.meta.api.methods.BotApiMethod;
@@ -38,7 +39,11 @@ import org.telegram.telegrambots.meta.api.objects.CallbackQuery;
 import org.telegram.telegrambots.meta.api.objects.Update;
 import org.telegram.telegrambots.meta.api.objects.User;
 import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
+
+import java.io.IOException;
 import java.math.BigDecimal;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.time.Instant;
 import java.util.*;
 import java.util.concurrent.ConcurrentMap;
@@ -48,12 +53,21 @@ public class TelegramMessageHandler extends ATelegramBot {
     private IStrategy deleteFile = new DeleteFileStrategy();
     private IStrategy deleteLinks = new DeleteLinksStrategy();
     private IStrategy runCommand = new CommandStrategy();
-    private static final List<Integer> WHITELIST = Arrays.asList(512328408, 521684737, 533756221, 331773699, 516271269, 497516201, 454184647);
-    private static final List<Long> CHAT = Arrays.asList(-1001385910531L, -1001175224299L, -1001417745659L);
-    public static final long VERIFICATON = -1001417745659L;
+    private List<Integer> WHITELIST;
+    private List<Long> CHAT;
+    public static long VERIFICATON;
 
-    TelegramMessageHandler(String token, String botname) {
+    TelegramMessageHandler(String token, String botname) throws IOException {
         super(token, botname);
+        setup();
+    }
+
+    @SuppressWarnings("unchecked")
+    private void setup() throws IOException {
+        final JSONObject config = new JSONObject(new String(Files.readAllBytes(Paths.get("token.json"))));
+        WHITELIST = (List<Integer>) config.toMap().get("whitelist");
+        VERIFICATON = (long) config.toMap().get("verification");
+        CHAT = (List<Long>) config.toMap().get("chat");
     }
 
     @Override
