@@ -66,7 +66,7 @@ public class TelegramMessageHandler extends ATelegramBot {
     private void setup() throws IOException {
         final JSONObject config = new JSONObject(new String(Files.readAllBytes(Paths.get("token.json"))));
         WHITELIST = (List<Integer>) config.toMap().get("whitelist");
-        VERIFICATON = (long) config.toMap().get("verification");
+        VERIFICATON = Long.parseLong(config.toMap().get("verification").toString());
         CHAT = (List<Long>) config.toMap().get("chat");
     }
 
