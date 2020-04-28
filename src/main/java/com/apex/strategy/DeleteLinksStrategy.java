@@ -98,16 +98,15 @@ public class DeleteLinksStrategy implements IStrategy {
             } catch (NoSuchAlgorithmException e) {
                 log.error(e.getMessage());
             }
+            boolean isBlacklistedImage = imageBlackList.containsKey(photoId);
+            database.close();
 
-            if (imageBlackList.containsKey(photoId)){
+            if (!isBlacklistedImage){
                 result.add(Optional.of(new ForwardMessage(TelegramMessageHandler.VERIFICATON, chatId, update.getMessage().getMessageId())));
                 result.add(sendBanKeyboard(userId, chatId));
-                result.add(Optional.of(new DeleteMessage(chatId, update.getMessage().getMessageId())));
-                database.close();
-                return result;
             }
-
-            database.close();
+            result.add(Optional.of(new DeleteMessage(chatId, update.getMessage().getMessageId())));
+            return result;
         }
 
         boolean hasLink = false;
@@ -121,23 +120,22 @@ public class DeleteLinksStrategy implements IStrategy {
                     if(ent.getUrl() != null) link = ent.getUrl();
                     database = DBMaker.fileDB("file.db").checksumHeaderBypass().make();
                     ConcurrentMap mapUrlBlackList = database.hashMap("urlBlackList").createOrOpen();
-                    if(mapUrlBlackList.containsKey(link)){
+                    boolean isBlacklistedUrl = mapUrlBlackList.containsKey(link);
+                    database.close();
+                    if(isBlacklistedUrl){
                         KickChatMember ban = new KickChatMember();
                         ban.setUserId(userId);
                         ban.setChatId(chatId);
                         ban.setUntilDate(new BigDecimal(Instant.now().getEpochSecond()).intValue());
                         result.add(Optional.of(ban));
-                        database.close();
                         result.add(Optional.of(new DeleteMessage(chatId, update.getMessage().getMessageId())));
                         return result;
                     }
-                    database.close();
                 }
             }
         }
 
-        if((update.getMessage().getFrom().getUserName() == null && hasLink) ||
-           (update.getMessage().getFrom().getUserName() == null && update.getMessage().hasPhoto())){
+        if(hasLink || update.getMessage().hasPhoto()){
             if(!link.equals("")) {
                 result.add(Optional.of(new ForwardMessage(TelegramMessageHandler.VERIFICATON, update.getMessage().getChatId(), update.getMessage().getMessageId())));
                 result.add(sendFeedbackKeyboard(link, userId, chatId));
@@ -146,7 +144,7 @@ public class DeleteLinksStrategy implements IStrategy {
             return result;
         }
 
-        if(website != null || fromUser != null || fromChat != null || hasLink || update.getMessage().hasPhoto() || update.getMessage().hasDocument()) {
+        if(website != null || fromUser != null || fromChat != null || update.getMessage().hasDocument()) {
             database = DBMaker.fileDB("file.db").checksumHeaderBypass().make();
             ConcurrentMap map = database.hashMap("user").createOrOpen();
             boolean isInDb = map.containsKey(userId);
@@ -159,11 +157,6 @@ public class DeleteLinksStrategy implements IStrategy {
                     map = database.hashMap("user").createOrOpen();
                     map.put(userId, Instant.now().getEpochSecond());
                     database.close();
-
-                    if(!link.equals("")) {
-                        result.add(Optional.of(new ForwardMessage(TelegramMessageHandler.VERIFICATON, chatId, update.getMessage().getMessageId())));
-                        result.add(sendFeedbackKeyboard(link, userId, chatId));
-                    }
 
                     if(update.getMessage().hasDocument() || update.getMessage().hasPhoto()){
                         if((update.getMessage().getCaption()!= null && update.getMessage().getCaption().contains("@")) ||
