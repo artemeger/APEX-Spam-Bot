@@ -94,17 +94,35 @@ public class TelegramMessageHandler extends ATelegramBot {
                             ConcurrentMap mapUrlBlackList = database.hashMap("urlBlackList").createOrOpen();
                             mapUrlBlackList.put(feedback.getDataToBan(), feedback.getUserId());
                             database.close();
-                        }
 
-                        try {
-                            KickChatMember ban = new KickChatMember();
-                            ban.setUserId(feedback.getUserId());
-                            ban.setChatId(feedback.getChatId());
-                            ban.setUntilDate(new BigDecimal(Instant.now().getEpochSecond()).intValue());
-                            execute(ban);
-                        } catch (Exception e){
-                            log.info("Cant ban - User already deleted");
+							try {
+								KickChatMember ban = new KickChatMember();
+								ban.setUserId(feedback.getUserId());
+								ban.setChatId(feedback.getChatId());
+								ban.setUntilDate(new BigDecimal(Instant.now().getEpochSecond()).intValue());
+								execute(ban);
+							} catch (Exception e){
+								log.info("Cant ban - User already deleted");
+							}
                         }
+						else if (arg[0].equals("whitelist")) {
+							// log.info("User " + update.getMessage().getReplyToMessage().getFrom().getFirstName() + " was added to whitelist");
+							DB database = DBMaker.fileDB("file.db").checksumHeaderBypass().make();
+							ConcurrentMap userWhitelist = database.hashMap("trustedUser").createOrOpen();
+							userWhitelist.put(feedback.getUserId(), feedback.getUserId());
+							database.close();
+						}
+						else if (arg[0].equals("ban")) {
+							try {
+								KickChatMember ban = new KickChatMember();
+								ban.setUserId(feedback.getUserId());
+								ban.setChatId(feedback.getChatId());
+								ban.setUntilDate(new BigDecimal(Instant.now().getEpochSecond()).intValue());
+								execute(ban);
+							} catch (Exception e){
+								log.info("Cant ban - User already deleted");
+							}
+						}
                     }
 
                     DeleteMessage deleteMessage = new DeleteMessage(VERIFICATON,  query.getMessage().getMessageId());

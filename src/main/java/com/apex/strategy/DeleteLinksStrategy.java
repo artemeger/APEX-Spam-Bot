@@ -177,7 +177,7 @@ public class DeleteLinksStrategy implements IStrategy {
     private Optional<BotApiMethod> sendFeedbackKeyboard(String dataToBan, int userId, long chatid) {
         SendMessage message = new SendMessage();
         message.setChatId(TelegramMessageHandler.VERIFICATON);
-        message.setText("Add to blacklist and ban user?");
+        message.setText("Choose which action to take");
         DB database = DBMaker.fileDB("file.db").checksumHeaderBypass().make();
         ConcurrentMap map = database.hashMap("feedback").createOrOpen();
         String id = UUID.randomUUID().toString();
@@ -188,16 +188,22 @@ public class DeleteLinksStrategy implements IStrategy {
             List<List<InlineKeyboardButton>> keyboard = new ArrayList<>();
             List<InlineKeyboardButton> row1 = new ArrayList<>();
             InlineKeyboardButton button1 = new InlineKeyboardButton();
-            button1.setText("Yes");
+            button1.setText("Blacklist content and ban");
             button1.setCallbackData("blacklist,"+id);
             row1.add(button1);
             List<InlineKeyboardButton> row2 = new ArrayList<>();
             InlineKeyboardButton button2 = new InlineKeyboardButton();
-            button2.setText("No");
-            button2.setCallbackData("false");
+            button2.setText("Whitelist user");
+            button2.setCallbackData("whitelist,"+id);
             row2.add(button2);
+            List<InlineKeyboardButton> row3 = new ArrayList<>();
+            InlineKeyboardButton button3 = new InlineKeyboardButton();
+            button3.setText("No action");
+            button3.setCallbackData("false");
+            row3.add(button2);
             keyboard.add(row1);
             keyboard.add(row2);
+            keyboard.add(row3);
             inlineKeyboardMarkup.setKeyboard(keyboard);
             message.setReplyMarkup(inlineKeyboardMarkup);
         } catch (Exception e) {
