@@ -28,9 +28,8 @@ import org.telegram.telegrambots.meta.api.methods.BotApiMethod;
 import org.telegram.telegrambots.meta.api.objects.Update;
 
 import java.util.ArrayList;
-import java.util.Optional;
 
 @FunctionalInterface
 public interface IStrategy {
-    ArrayList<Optional<BotApiMethod>> runStrategy(Update update);
+    ArrayList<BotApiMethod> runStrategy(Update update);
 }

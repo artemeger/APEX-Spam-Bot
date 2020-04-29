@@ -24,53 +24,58 @@
 
 package com.apex.strategy;
 
-import com.apex.bot.TelegramMessageHandler;
-import com.apex.objects.Feedback;
-import org.apache.commons.codec.binary.Hex;
-import org.mapdb.DB;
-import org.mapdb.DBMaker;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import com.apex.addition.FeedbackKeyboard;
+import com.apex.entities.Blacklist;
+import com.apex.entities.TGUser;
+import com.apex.repository.IBlackListRepository;
+import com.apex.repository.IFeedbackRepository;
+import com.apex.repository.ITGUserRepository;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Component;
 import org.telegram.telegrambots.meta.api.methods.BotApiMethod;
 import org.telegram.telegrambots.meta.api.methods.ForwardMessage;
 import org.telegram.telegrambots.meta.api.methods.groupadministration.KickChatMember;
-import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
 import org.telegram.telegrambots.meta.api.methods.updatingmessages.DeleteMessage;
 import org.telegram.telegrambots.meta.api.objects.*;
-import org.telegram.telegrambots.meta.api.objects.replykeyboard.InlineKeyboardMarkup;
-import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.InlineKeyboardButton;
 import java.math.BigDecimal;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
-import java.util.UUID;
-import java.util.concurrent.ConcurrentMap;
+import java.util.stream.Collectors;
 
+@Component
 public class DeleteLinksStrategy implements IStrategy {
 
-    private Logger log = LoggerFactory.getLogger(this.getClass());
+    @Autowired
+    private IFeedbackRepository feedbackRepository;
+
+    @Autowired
+    private ITGUserRepository tgUserRepository;
+
+    @Autowired
+    private IBlackListRepository blackListRepository;
+
+    @Value("${bot.verification}")
+    private long verification;
 
     @Override
-    @SuppressWarnings("unchecked")
-    public ArrayList<Optional<BotApiMethod>> runStrategy(Update update) {
-        ArrayList<Optional<BotApiMethod>> result = new ArrayList<>();
-        result.add(Optional.empty());
+    public ArrayList<BotApiMethod> runStrategy(Update update) {
 
-        int userId = update.getMessage().getFrom().getId();
-        long chatId = update.getMessage().getChatId();
-        String website = update.getMessage().getConnectedWebsite();
-        User fromUser = update.getMessage().getForwardFrom();
-        Chat fromChat = update.getMessage().getForwardFromChat();
-        List<MessageEntity> msgList = update.getMessage().getEntities();
+        final ArrayList<BotApiMethod> result = new ArrayList<>();
+        final int userId = update.getMessage().getFrom().getId();
+        final long chatId = update.getMessage().getChatId();
+        final int messageId = update.getMessage().getMessageId();
+        final String website = update.getMessage().getConnectedWebsite();
+        final User fromUser = update.getMessage().getForwardFrom();
+        final Chat fromChat = update.getMessage().getForwardFromChat();
+        final List<MessageEntity> msgList = update.getMessage().getEntities();
 
-        DB database = DBMaker.fileDB("file.db").checksumHeaderBypass().make();
-        ConcurrentMap userWhitelist = database.hashMap("trustedUser").createOrOpen();
-        boolean isWhitelisted = userWhitelist.containsKey(userId);
-        database.close();
-        if(isWhitelisted) return result;
+        final Optional<TGUser> userOpt = tgUserRepository.findById(userId);
+        if(userOpt.isPresent()){
+            if(userOpt.get().isTrusted()) return result;
+        }
 
         if (update.getMessage().hasDocument()) {
             if (update.getMessage().getDocument().getMimeType().equals("image/gif") ||
@@ -80,32 +85,17 @@ public class DeleteLinksStrategy implements IStrategy {
         }
 
         if(update.getMessage().hasPhoto()) {
-            List<PhotoSize> photos = update.getMessage().getPhoto();
-            database = DBMaker.fileDB("file.db").checksumHeaderBypass().make();
-            ConcurrentMap imageBlackList = database.hashMap("imageBlacklist").createOrOpen();
-
-            String photoMeta = "";
-            for(PhotoSize photo : photos){
-                photoMeta += photo.getHeight().toString() + photo.getWidth().toString();
+            final String hash = update.getMessage().getReplyToMessage().getPhoto().stream()
+                    .map(photo -> photo.getHeight().toString()
+                            + photo.getWidth().toString()
+                            + photo.getFileId())
+                    .collect(Collectors.joining());
+            final Optional<Blacklist> blacklistOpt = blackListRepository.findFirstByHash(hash);
+            if(!blacklistOpt.isPresent()){
+                result.add(new ForwardMessage(verification, chatId, messageId));
+                result.add(new FeedbackKeyboard(userId, chatId, verification, hash, feedbackRepository).getBanKeyboard());
             }
-
-            byte[] bytesOfPhoto = photoMeta.getBytes();
-            String photoId = "";
-
-            try {
-                MessageDigest md = MessageDigest.getInstance("SHA-256");
-                photoId = new String(Hex.encodeHex(md.digest(bytesOfPhoto)));
-            } catch (NoSuchAlgorithmException e) {
-                log.error(e.getMessage());
-            }
-            boolean isBlacklistedImage = imageBlackList.containsKey(photoId);
-            database.close();
-
-            if (!isBlacklistedImage){
-                result.add(Optional.of(new ForwardMessage(TelegramMessageHandler.VERIFICATON, chatId, update.getMessage().getMessageId())));
-                result.add(sendBanKeyboard(userId, chatId));
-            }
-            result.add(Optional.of(new DeleteMessage(chatId, update.getMessage().getMessageId())));
+            result.add(new DeleteMessage(chatId, update.getMessage().getMessageId()));
             return result;
         }
 
@@ -118,17 +108,14 @@ public class DeleteLinksStrategy implements IStrategy {
                     hasLink = true;
                     if(ent.getText() != null) link = ent.getText();
                     if(ent.getUrl() != null) link = ent.getUrl();
-                    database = DBMaker.fileDB("file.db").checksumHeaderBypass().make();
-                    ConcurrentMap mapUrlBlackList = database.hashMap("urlBlackList").createOrOpen();
-                    boolean isBlacklistedUrl = mapUrlBlackList.containsKey(link);
-                    database.close();
-                    if(isBlacklistedUrl){
+                    final Optional<Blacklist> blacklistOpt = blackListRepository.findFirstByHash(link);
+                    if(blacklistOpt.isPresent()){
                         KickChatMember ban = new KickChatMember();
                         ban.setUserId(userId);
                         ban.setChatId(chatId);
                         ban.setUntilDate(new BigDecimal(Instant.now().getEpochSecond()).intValue());
-                        result.add(Optional.of(ban));
-                        result.add(Optional.of(new DeleteMessage(chatId, update.getMessage().getMessageId())));
+                        result.add(ban);
+                        result.add(new DeleteMessage(chatId, messageId));
                         return result;
                     }
                 }
@@ -137,104 +124,26 @@ public class DeleteLinksStrategy implements IStrategy {
 
         if(hasLink || update.getMessage().hasPhoto()){
             if(!link.equals("")) {
-                result.add(Optional.of(new ForwardMessage(TelegramMessageHandler.VERIFICATON, update.getMessage().getChatId(), update.getMessage().getMessageId())));
-                result.add(sendFeedbackKeyboard(link, userId, chatId));
+                result.add(new ForwardMessage(verification, chatId, messageId));
+                result.add(new FeedbackKeyboard(userId, chatId, verification, link, feedbackRepository).getBanKeyboard());
             }
-            result.add(Optional.of(new DeleteMessage(chatId, update.getMessage().getMessageId())));
+            result.add(new DeleteMessage(chatId, update.getMessage().getMessageId()));
             return result;
         }
 
         if(website != null || fromUser != null || fromChat != null || update.getMessage().hasDocument()) {
-            database = DBMaker.fileDB("file.db").checksumHeaderBypass().make();
-            ConcurrentMap map = database.hashMap("user").createOrOpen();
-            boolean isInDb = map.containsKey(userId);
-            long timeCreated = 0;
-            if(isInDb) timeCreated = (long) map.get(userId);
-            database.close();
-            if(isInDb){
-                if(Instant.now().getEpochSecond() - timeCreated < 864000){
-                    database = DBMaker.fileDB("file.db").checksumHeaderBypass().make();
-                    map = database.hashMap("user").createOrOpen();
-                    map.put(userId, Instant.now().getEpochSecond());
-                    database.close();
-
-                    if(update.getMessage().hasDocument() || update.getMessage().hasPhoto()){
-                        if((update.getMessage().getCaption()!= null && update.getMessage().getCaption().contains("@")) ||
-                                (update.getMessage().getText() != null && update.getMessage().getText().contains("@"))) {
-                            result.add(Optional.of(new ForwardMessage(TelegramMessageHandler.VERIFICATON, chatId, update.getMessage().getMessageId())));
-                            result.add(sendBanKeyboard(userId, chatId));
-                        }
-                    }
-
-                    result.add(Optional.of(new DeleteMessage(update.getMessage().getChatId(), update.getMessage().getMessageId())));
-                    return result;
+            if(update.getMessage().hasDocument() || update.getMessage().hasPhoto()){
+                if((update.getMessage().getCaption()!= null && update.getMessage().getCaption().contains("@")) ||
+                        (update.getMessage().getText() != null && update.getMessage().getText().contains("@"))) {
+                    result.add(new ForwardMessage(verification, chatId, messageId));
+                    result.add(new FeedbackKeyboard(userId, chatId,verification, "", feedbackRepository).getBanKeyboard());
                 }
             }
+            result.add(new DeleteMessage(chatId, messageId));
         }
+
         return result;
+
     }
 
-    private Optional<BotApiMethod> sendFeedbackKeyboard(String dataToBan, int userId, long chatid) {
-        SendMessage message = new SendMessage();
-        message.setChatId(TelegramMessageHandler.VERIFICATON);
-        message.setText("Add to blacklist and ban user?");
-        DB database = DBMaker.fileDB("file.db").checksumHeaderBypass().make();
-        ConcurrentMap map = database.hashMap("feedback").createOrOpen();
-        String id = UUID.randomUUID().toString();
-        map.put(id, new Feedback(dataToBan, userId, chatid));
-        database.close();
-        try {
-            InlineKeyboardMarkup inlineKeyboardMarkup = new InlineKeyboardMarkup();
-            List<List<InlineKeyboardButton>> keyboard = new ArrayList<>();
-            List<InlineKeyboardButton> row1 = new ArrayList<>();
-            InlineKeyboardButton button1 = new InlineKeyboardButton();
-            button1.setText("Yes");
-            button1.setCallbackData("blacklist,"+id);
-            row1.add(button1);
-            List<InlineKeyboardButton> row2 = new ArrayList<>();
-            InlineKeyboardButton button2 = new InlineKeyboardButton();
-            button2.setText("No");
-            button2.setCallbackData("false");
-            row2.add(button2);
-            keyboard.add(row1);
-            keyboard.add(row2);
-            inlineKeyboardMarkup.setKeyboard(keyboard);
-            message.setReplyMarkup(inlineKeyboardMarkup);
-        } catch (Exception e) {
-            log.error(e.getMessage());
-        }
-        return Optional.of(message);
-    }
-
-    private Optional<BotApiMethod> sendBanKeyboard(int userId, long chatid) {
-        SendMessage message = new SendMessage();
-        message.setChatId(TelegramMessageHandler.VERIFICATON);
-        message.setText("Ban this user?");
-        DB database = DBMaker.fileDB("file.db").checksumHeaderBypass().make();
-        ConcurrentMap map = database.hashMap("feedback").createOrOpen();
-        String id = UUID.randomUUID().toString();
-        map.put(id, new Feedback("", userId, chatid));
-        database.close();
-        try {
-            InlineKeyboardMarkup inlineKeyboardMarkup = new InlineKeyboardMarkup();
-            List<List<InlineKeyboardButton>> keyboard = new ArrayList<>();
-            List<InlineKeyboardButton> row1 = new ArrayList<>();
-            InlineKeyboardButton button1 = new InlineKeyboardButton();
-            button1.setText("Yes");
-            button1.setCallbackData("ban,"+id);
-            row1.add(button1);
-            List<InlineKeyboardButton> row2 = new ArrayList<>();
-            InlineKeyboardButton button2 = new InlineKeyboardButton();
-            button2.setText("No");
-            button2.setCallbackData("false");
-            row2.add(button2);
-            keyboard.add(row1);
-            keyboard.add(row2);
-            inlineKeyboardMarkup.setKeyboard(keyboard);
-            message.setReplyMarkup(inlineKeyboardMarkup);
-        } catch (Exception e) {
-            log.error(e.getMessage());
-        }
-        return Optional.of(message);
-    }
 }

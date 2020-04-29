@@ -24,156 +24,146 @@
 
 package com.apex.bot;
 
-import com.apex.objects.Feedback;
+import com.apex.ATelegramBot;
+import com.apex.addition.FeedbackAction;
+import com.apex.entities.Blacklist;
+import com.apex.entities.Feedback;
+import com.apex.entities.TGUser;
+import com.apex.repository.IBlackListRepository;
+import com.apex.repository.IFeedbackRepository;
+import com.apex.repository.ITGUserRepository;
 import com.apex.strategy.CommandStrategy;
 import com.apex.strategy.DeleteFileStrategy;
 import com.apex.strategy.DeleteLinksStrategy;
 import com.apex.strategy.IStrategy;
-import org.json.JSONObject;
-import org.mapdb.DB;
-import org.mapdb.DBMaker;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Service;
 import org.telegram.telegrambots.meta.api.methods.BotApiMethod;
 import org.telegram.telegrambots.meta.api.methods.groupadministration.KickChatMember;
 import org.telegram.telegrambots.meta.api.methods.updatingmessages.DeleteMessage;
 import org.telegram.telegrambots.meta.api.objects.CallbackQuery;
 import org.telegram.telegrambots.meta.api.objects.Update;
-import org.telegram.telegrambots.meta.api.objects.User;
 import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 
-import java.io.IOException;
 import java.math.BigDecimal;
-import java.nio.file.Files;
-import java.nio.file.Paths;
 import java.time.Instant;
 import java.util.*;
-import java.util.concurrent.ConcurrentMap;
 
+@Service
 public class TelegramMessageHandler extends ATelegramBot {
 
-    private IStrategy deleteFile = new DeleteFileStrategy();
-    private IStrategy deleteLinks = new DeleteLinksStrategy();
-    private IStrategy runCommand = new CommandStrategy();
-    private List<Integer> WHITELIST;
-    private List<Long> CHAT;
-    public static long VERIFICATON;
+    private final Logger log = LoggerFactory.getLogger(this.getClass());
 
-    TelegramMessageHandler(String token, String botname) throws IOException {
-        super(token, botname);
-        setup();
-    }
+    @Value("${bot.verification}")
+    private long verification;
 
-    @SuppressWarnings("unchecked")
-    private void setup() throws IOException {
-        final JSONObject config = new JSONObject(new String(Files.readAllBytes(Paths.get("token.json"))));
-        WHITELIST = (List<Integer>) config.toMap().get("whitelist");
-        VERIFICATON = Long.parseLong(config.toMap().get("verification").toString());
-        CHAT = (List<Long>) config.toMap().get("chat");
+    @Value("${bot.whitelist}")
+    private List<Integer> whitelist;
+
+    @Value("${bot.chat}")
+    private List<Long> chat;
+
+    @Autowired
+    private IFeedbackRepository feedbackRepository;
+
+    @Autowired
+    private ITGUserRepository tgUserRepository;
+
+    @Autowired
+    private IBlackListRepository blackListRepository;
+
+    @Autowired
+    private DeleteFileStrategy deleteFile;
+
+    @Autowired
+    private DeleteLinksStrategy deleteLinks;
+
+    @Autowired
+    private CommandStrategy runCommand;
+
+    @Autowired
+    public TelegramMessageHandler(@Value("${bot.token}") String botToken, @Value("${bot.name}") String botName) {
+        super(botToken, botName);
     }
 
     @Override
-    @SuppressWarnings("unchecked")
     public void onUpdateReceived(Update update) {
 
         try {
 
-            if(update.hasCallbackQuery()){
+            if (update.hasCallbackQuery()) {
                 try {
-                    CallbackQuery query = update.getCallbackQuery();
-                    String callbackData = query.getData();
-                    if(callbackData != null && !callbackData.equals("false")){
+                    final CallbackQuery query = update.getCallbackQuery();
+                    final String callbackData = query.getData();
+                    if (callbackData != null && !callbackData.equals(FeedbackAction.IGNORE.getAction())) {
 
-                        String [] arg = callbackData.split(",");
-
-                        DB database = DBMaker.fileDB("file.db").checksumHeaderBypass().make();
-                        ConcurrentMap map = database.hashMap("feedback").createOrOpen();
-                        Feedback feedback = (Feedback) map.get(arg[1]);
-                        database.close();
-
-                        if(arg[0].equals("blacklist")) {
-                            database = DBMaker.fileDB("file.db").checksumHeaderBypass().make();
-                            ConcurrentMap mapUrlBlackList = database.hashMap("urlBlackList").createOrOpen();
-                            mapUrlBlackList.put(feedback.getDataToBan(), feedback.getUserId());
-                            database.close();
-                        }
-
-                        try {
-                            KickChatMember ban = new KickChatMember();
-                            ban.setUserId(feedback.getUserId());
-                            ban.setChatId(feedback.getChatId());
-                            ban.setUntilDate(new BigDecimal(Instant.now().getEpochSecond()).intValue());
-                            execute(ban);
-                        } catch (Exception e){
-                            log.info("Cant ban - User already deleted");
-                        }
+                        final String[] arg = callbackData.split(",");
+                        final String action = arg[0];
+                        final String feedbackId = arg[1];
+                        final Optional<Feedback> feedbackOpt = feedbackRepository.findById(feedbackId);
+                        feedbackOpt.ifPresent(feedback -> {
+                            if (action.equals(FeedbackAction.BAN.getAction())) {
+                                if (!feedback.getData().equals(""))
+                                    blackListRepository.save(new Blacklist(feedback.getData()));
+                                try {
+                                    KickChatMember ban = new KickChatMember();
+                                    ban.setUserId(feedback.getUserId());
+                                    ban.setChatId(feedback.getChatId());
+                                    ban.setUntilDate(new BigDecimal(Instant.now().getEpochSecond()).intValue());
+                                    execute(ban);
+                                } catch (Exception e) {
+                                    log.info("Cant ban User!");
+                                }
+                            } else if (action.equals(FeedbackAction.WHITELIST.getAction())) {
+                                tgUserRepository.save(new TGUser(feedback.getUserId(), 0, true));
+                            }
+                        });
                     }
-
-                    DeleteMessage deleteMessage = new DeleteMessage(VERIFICATON,  query.getMessage().getMessageId());
-                    execute(deleteMessage);
-                } catch (Exception e){
+                    execute(new DeleteMessage(verification, query.getMessage().getMessageId()));
+                } catch (Exception e) {
                     log.error("Error in Callback");
                     log.error(e.getMessage());
                 }
             }
 
-            if (CHAT.contains(update.getMessage().getChatId())) {
-                if (update.getMessage().getNewChatMembers() != null) {
-                    DB database = DBMaker.fileDB("file.db").checksumHeaderBypass().make();
-                    ConcurrentMap userMap = database.hashMap("user").createOrOpen();
-                    for (User user : update.getMessage().getNewChatMembers()) {
-                        userMap.put(user.getId(), Instant.now().getEpochSecond());
-                    }
-                    database.close();
-                    log.info("Added User");
-                }
+            if (update.getMessage() != null) {
 
-                int from = update.getMessage().getFrom().getId();
-                ArrayList<Optional<BotApiMethod>> commands;
+                final long chatId = update.getMessage().getChatId();
+                final int fromUser = update.getMessage().getFrom().getId();
 
-                if(update.hasMessage()) {
-                    if (WHITELIST.contains(from)) {
-                        commands = runCommand.runStrategy(update);
-                        for (Optional<BotApiMethod> method : commands) {
-                            method.ifPresent(command -> {
-                                try {
-                                    execute(command);
-                                    log.info("Command fired");
-                                } catch (TelegramApiException e) {
-                                    log.error("Failed execute Command" + e.getMessage());
-                                }
-                            });
-                        }
-                    }
-                }
+                if (chat.contains(chatId)) {
 
-                if (!WHITELIST.contains(from)) {
-                    if (update.getMessage().hasDocument()) {
-                        commands = deleteFile.runStrategy(update);
-                        for (Optional<BotApiMethod> method : commands) {
-                            method.ifPresent(delete -> {
-                                try {
-                                    execute(delete);
-                                    log.info("Deleted File");
-                                } catch (TelegramApiException e) {
-                                    log.error("Failed to delete File" + e.getMessage());
-                                }
-                            });
+                    final ArrayList<BotApiMethod> commands = new ArrayList<>();
+
+                    if (update.hasMessage()) {
+                        if (whitelist.contains(fromUser)) {
+                            commands.addAll(runCommand.runStrategy(update));
                         }
                     }
 
-                    commands = deleteLinks.runStrategy(update);
-                    for (Optional<BotApiMethod> method : commands) {
-                        method.ifPresent(delete -> {
-                            try {
-                                execute(delete);
-                                log.info("Deleted Link");
-                            } catch (TelegramApiException e) {
-                                log.error("Failed to delete Link" + e.getMessage());
-                            }
-                        });
+                    if (whitelist.contains(fromUser)) {
+                        if (update.getMessage().hasDocument()) {
+                            commands.addAll(deleteFile.runStrategy(update));
+                        }
+                        commands.addAll(deleteLinks.runStrategy(update));
                     }
+
+                    commands.forEach(command -> {
+                        try {
+                            execute(command);
+                        } catch (TelegramApiException e) {
+                            log.error("Failed to execute Command with " + e.getMessage());
+                        }
+                    });
                 }
+
             }
 
-        } catch (Exception e) {}
+        } catch (Exception e) {
+            log.info("Got an unknown message. Ignore");
+        }
     }
 }

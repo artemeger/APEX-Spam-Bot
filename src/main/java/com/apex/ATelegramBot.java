@@ -22,23 +22,20 @@
  * SOFTWARE.
  */
 
-package com.apex.bot;
+package com.apex;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.telegram.telegrambots.bots.TelegramLongPollingBot;
 import org.telegram.telegrambots.meta.api.objects.Update;
 
 public abstract class ATelegramBot extends TelegramLongPollingBot {
 
-    ATelegramBot(String token, String botname){
+    private final String token;
+    private final String botname;
+
+    public ATelegramBot(final String token, final String botname){
         this.token = token;
         this.botname = botname;
     }
-
-    private String token;
-    private String botname;
-    Logger log = LoggerFactory.getLogger(this.getClass());
 
     @Override
     public abstract void onUpdateReceived(Update update);

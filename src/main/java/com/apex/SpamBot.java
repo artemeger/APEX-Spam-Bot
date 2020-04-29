@@ -22,38 +22,45 @@
  * SOFTWARE.
  */
 
-package com.apex.bot;
+package com.apex;
 
-import org.json.JSONObject;
+import com.apex.bot.TelegramMessageHandler;
+import com.apex.bot.TelegramSessionManager;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.SpringApplication;
+import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.boot.context.event.ApplicationReadyEvent;
+import org.springframework.context.event.EventListener;
 
-import java.nio.file.Files;
-import java.nio.file.Paths;
-import java.util.Map;
-
+@SpringBootApplication
 public class SpamBot {
 
-    private static final String BOT_NAME = "SpamBot";
-    private static final Logger LOG = LoggerFactory.getLogger(SpamBot.class);
+    @Autowired
+    private TelegramSessionManager telegramSessionManager;
+
+    @Autowired
+    private TelegramMessageHandler telegramMessageHandler;
+
+    private final Logger log = LoggerFactory.getLogger(this.getClass());
 
     public static void main(String[] args){
-        TelegramSessionManager telegramSessionManager = new TelegramSessionManager();
+        SpringApplication.run(SpamBot.class, args);
+    }
+
+    @EventListener(ApplicationReadyEvent.class)
+    public void runTelegramBot(){
         try {
-            String content = new String(Files.readAllBytes(Paths.get("token.json")));
-            JSONObject questions = new JSONObject(content);
-            Map<String, Object> map = questions.toMap();
-            telegramSessionManager.addPollingBot(new TelegramMessageHandler((String) map.get("token"), BOT_NAME));
+            telegramSessionManager.addPollingBot(telegramMessageHandler);
             telegramSessionManager.start();
-            LOG.info("Bot started");
-            while (true){
-                Thread.sleep(500);
-            }
+            log.info("Bot started");
         } catch (Exception e) {
-            LOG.error("Something went wrong: "+ e.getCause().getMessage());
+            log.error("Something went wrong: "+ e.getMessage());
         } finally {
             telegramSessionManager.stop();
-            LOG.info("Bot down");
+            log.info("Bot down");
         }
     }
+
 }

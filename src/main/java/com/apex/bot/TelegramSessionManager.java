@@ -32,11 +32,11 @@ import org.telegram.telegrambots.meta.exceptions.TelegramApiRequestException;
 import org.telegram.telegrambots.meta.generics.BotSession;
 import org.telegram.telegrambots.meta.generics.LongPollingBot;
 
-public class TelegramSessionManager implements IRunWithOwnThread{
+public class TelegramSessionManager implements IRunWithOwnThread {
 
-    private TelegramBotsApi botsApi;
     private BotSession session;
-    private Logger log = LoggerFactory.getLogger(this.getClass());
+    private final TelegramBotsApi botsApi;
+    private final Logger log = LoggerFactory.getLogger(this.getClass());
 
     public TelegramSessionManager(){
         ApiContextInitializer.init();
@@ -47,7 +47,7 @@ public class TelegramSessionManager implements IRunWithOwnThread{
         try {
             session = this.botsApi.registerBot(bot);
         } catch (TelegramApiRequestException e) {
-            log.error("Telegram Api bot registration failed", e.getApiResponse());
+            log.error("Telegram Api bot registration failed" + e.getApiResponse());
         }
     }
 
@@ -62,4 +62,5 @@ public class TelegramSessionManager implements IRunWithOwnThread{
     public void stop() {
         session.stop();
     }
+
 }
