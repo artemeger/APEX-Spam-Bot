@@ -181,7 +181,7 @@ public class DeleteLinksStrategy implements IStrategy {
         DB database = DBMaker.fileDB("file.db").checksumHeaderBypass().make();
         ConcurrentMap map = database.hashMap("feedback").createOrOpen();
         String id = UUID.randomUUID().toString();
-        map.put(id, new Feedback(dataToBan, userId, chatid));
+        map.put(id, new Feedback(dataToBan, userId, chatId, messageId));
         database.close();
         try {
             InlineKeyboardMarkup inlineKeyboardMarkup = new InlineKeyboardMarkup();

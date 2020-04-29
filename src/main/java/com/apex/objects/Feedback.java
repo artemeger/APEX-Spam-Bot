@@ -6,10 +6,11 @@ public class Feedback implements Serializable {
 
     public static final long serialVersionUID = 4453534524667546L;
 
-    public Feedback(String dataToBan, int userId, long chatId){
+    public Feedback(String dataToBan, int userId, long chatId, long messageId){
         this.dataToBan = dataToBan;
         this.userId = userId;
         this.chatId = chatId;
+        this.messageId = messageId;
     }
 
     private String dataToBan;
@@ -17,6 +18,8 @@ public class Feedback implements Serializable {
     private int userId;
 
     private long chatId;
+
+    private long messageId;
 
     public String getDataToBan() {
         return dataToBan;
@@ -40,6 +43,14 @@ public class Feedback implements Serializable {
 
     public void setChatId(long chatId) {
         this.chatId = chatId;
+    }
+
+    public long getMessageId() {
+        return messageId;
+    }
+
+    public void setMessageId(long messageId) {
+        this.messageId = messageId;
     }
 
 }

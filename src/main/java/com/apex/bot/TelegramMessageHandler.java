@@ -111,6 +111,8 @@ public class TelegramMessageHandler extends ATelegramBot {
 							ConcurrentMap userWhitelist = database.hashMap("trustedUser").createOrOpen();
 							userWhitelist.put(feedback.getUserId(), feedback.getUserId());
 							database.close();
+							ForwardMessage forwardMessage = new ForwardMessage(feedback.getChatId(), TelegramMessageHandler.VERIFICATON, feedback.getMessageId());
+							execute(forwardMessage);
 						}
 						else if (arg[0].equals("ban")) {
 							try {
