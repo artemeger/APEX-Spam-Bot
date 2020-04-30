@@ -51,16 +51,9 @@ public class SpamBot {
 
     @EventListener(ApplicationReadyEvent.class)
     public void runTelegramBot(){
-        try {
-            telegramSessionManager.addPollingBot(telegramMessageHandler);
-            telegramSessionManager.start();
-            log.info("Bot started");
-        } catch (Exception e) {
-            log.error("Something went wrong: "+ e.getMessage());
-        } finally {
-            telegramSessionManager.stop();
-            log.info("Bot down");
-        }
+        telegramSessionManager.addPollingBot(telegramMessageHandler);
+        telegramSessionManager.start();
+        log.info("Bot started");
     }
 
 }

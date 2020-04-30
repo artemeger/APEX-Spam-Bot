@@ -33,10 +33,14 @@ public class FeedbackKeyboard {
     public BotApiMethod getBanKeyboard() {
         SendMessage message = new SendMessage();
         message.setChatId(verification);
-        message.setText("User shared this");
+        message.setText("This Post was shared");
 
-        final String id = UUID.randomUUID().toString();
-        feedbackRepository.save(new Feedback(id, userId, chatId, data));
+        feedbackRepository.save(new Feedback(userId, chatId, data));
+        final Optional<Feedback> feedbackOpt = feedbackRepository.findFirstByUserId(userId);
+        long id = 0L;
+        if(feedbackOpt.isPresent()){
+            id = feedbackOpt.get().getFeedbackId();
+        }
 
         InlineKeyboardMarkup inlineKeyboardMarkup = new InlineKeyboardMarkup();
         List<List<InlineKeyboardButton>> keyboard = new ArrayList<>();

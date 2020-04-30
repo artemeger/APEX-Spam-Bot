@@ -1,24 +1,23 @@
 package com.apex.entities;
 
 import javax.persistence.*;
-import java.util.UUID;
 
 @Entity
 public class Feedback {
 
     public Feedback() {
-        this.feedbackId = UUID.randomUUID().toString();
+
     }
 
-    public Feedback(final String uuid, final int userId, final long chatId, final String data) {
-        this.feedbackId = uuid;
+    public Feedback(final int userId, final long chatId, final String data) {
         this.userId = userId;
         this.chatId = chatId;
         this.data = data;
     }
 
     @Id
-    private String feedbackId;
+    @GeneratedValue(strategy = GenerationType.AUTO)
+    private long feedbackId;
 
     private int userId;
 
@@ -26,11 +25,11 @@ public class Feedback {
 
     private String data;
 
-    public String getFeedbackId() {
+    public long getFeedbackId() {
         return feedbackId;
     }
 
-    public void setFeedbackId(String feedbackId) {
+    public void setFeedbackId(long feedbackId) {
         this.feedbackId = feedbackId;
     }
 

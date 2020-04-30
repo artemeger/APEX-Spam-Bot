@@ -35,7 +35,6 @@ import com.apex.repository.ITGUserRepository;
 import com.apex.strategy.CommandStrategy;
 import com.apex.strategy.DeleteFileStrategy;
 import com.apex.strategy.DeleteLinksStrategy;
-import com.apex.strategy.IStrategy;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -102,7 +101,7 @@ public class TelegramMessageHandler extends ATelegramBot {
 
                         final String[] arg = callbackData.split(",");
                         final String action = arg[0];
-                        final String feedbackId = arg[1];
+                        final long feedbackId = Long.parseLong(arg[1]);
                         final Optional<Feedback> feedbackOpt = feedbackRepository.findById(feedbackId);
                         feedbackOpt.ifPresent(feedback -> {
                             if (action.equals(FeedbackAction.BAN.getAction())) {
@@ -138,13 +137,13 @@ public class TelegramMessageHandler extends ATelegramBot {
 
                     final ArrayList<BotApiMethod> commands = new ArrayList<>();
 
-                    if (update.hasMessage()) {
-                        if (whitelist.contains(fromUser)) {
+                    if (whitelist.contains(fromUser)) {
+                        if (update.hasMessage()) {
                             commands.addAll(runCommand.runStrategy(update));
                         }
                     }
 
-                    if (whitelist.contains(fromUser)) {
+                    if (!whitelist.contains(fromUser)) {
                         if (update.getMessage().hasDocument()) {
                             commands.addAll(deleteFile.runStrategy(update));
                         }
@@ -154,9 +153,7 @@ public class TelegramMessageHandler extends ATelegramBot {
                     commands.forEach(command -> {
                         try {
                             execute(command);
-                        } catch (TelegramApiException e) {
-                            log.error("Failed to execute Command with " + e.getMessage());
-                        }
+                        } catch (TelegramApiException e) {}
                     });
                 }
 

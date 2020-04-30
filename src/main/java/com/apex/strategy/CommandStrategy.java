@@ -31,6 +31,7 @@ import com.apex.repository.ITGUserRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import org.telegram.telegrambots.meta.api.methods.BotApiMethod;
 import org.telegram.telegrambots.meta.api.methods.groupadministration.KickChatMember;
@@ -55,8 +56,16 @@ public class CommandStrategy implements IStrategy {
     @Autowired
     private IBlackListRepository blackListRepository;
 
+    @Value("${first.warning}")
+    private String firstWarning;
+
+    @Value("${second.warning}")
+    private String secondWarning;
+
+    @Value("${third.warning}")
+    private String thirdWarning;
+
     @Override
-    @SuppressWarnings("unchecked")
     public ArrayList<BotApiMethod> runStrategy(Update update) {
 
         final ArrayList<BotApiMethod> result = new ArrayList<>();
@@ -73,7 +82,7 @@ public class CommandStrategy implements IStrategy {
                             tgUserRepository.delete(user);
                             final SendMessage msg = new SendMessage();
                             msg.setChatId(update.getMessage().getChatId());
-                            msg.setText("All is forgiven, " + userName + ", Chomp loves you!");
+                            msg.setText("All is forgiven, " + userName + ", I love you! (again)");
                             result.add(msg);
                             log.info("User " + userName + " was forgiven");
                         });
@@ -83,17 +92,17 @@ public class CommandStrategy implements IStrategy {
                     tgUserRepository.findById(userId).ifPresentOrElse(user -> {
                         user.setCount(user.getCount() + 1);
                         if (user.getCount() == 1){
-                            msg.setText(userName + ", please rethink what you are doing.\nKindly requested 1/3 times.");
+                            msg.setText(userName + ", " + firstWarning);
                         } else if (user.getCount() == 2){
-                            msg.setText(userName + ", please rethink what you are doing or this will not end well.\nKindly requested 2/3 times.");
-                        }
-                        else if(user.getCount() >= 3) {
+                            msg.setText(userName + ", " + secondWarning);
+                        } else if(user.getCount() >= 3) {
                             result.add(banUser(userId, chatId));
-                            msg.setText(userName + " was warned 3/3 times - game over, Chomp wins!");
+                            msg.setText(userName + " " + thirdWarning);
                         }
+                        tgUserRepository.save(user);
                     }, () -> {
                         tgUserRepository.save(new TGUser(userId, 1, true));
-                        msg.setText(userName + ", please rethink what you are doing.\nKindly requested 1/3 times.");
+                        msg.setText(userName + firstWarning);
                     });
                     result.add(msg);
                 } else if (messageText.contains("!mute")) {

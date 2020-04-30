@@ -2,6 +2,7 @@ package com.apex.entities;
 
 import javax.persistence.Entity;
 import javax.persistence.GeneratedValue;
+import javax.persistence.GenerationType;
 import javax.persistence.Id;
 
 @Entity
@@ -15,16 +16,16 @@ public class Blacklist {
     }
 
     @Id
-    @GeneratedValue(generator="UUID")
-    private String blackListId;
+    @GeneratedValue(strategy = GenerationType.AUTO)
+    private long blackListId;
 
     private String hash;
 
-    public String getBlackListId() {
+    public long getBlackListId() {
         return blackListId;
     }
 
-    public void setBlackListId(String blackListId) {
+    public void setBlackListId(long blackListId) {
         this.blackListId = blackListId;
     }
 
