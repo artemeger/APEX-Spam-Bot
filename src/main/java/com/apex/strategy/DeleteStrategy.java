@@ -97,9 +97,13 @@ public class DeleteStrategy implements IStrategy {
 
         if(update.getMessage().hasPhoto()) {
             final String hash = update.getMessage().getPhoto().stream()
-                    .map(photo -> photo.getWidth().toString() +
+                    .map(photo -> (photo.getWidth() != null &&
+                                photo.getHeight() != null &&
+                                photo.getFileSize()!= null) ?
+                                photo.getWidth().toString() +
                                 photo.getHeight().toString() +
-                                photo.getFileSize().toString())
+                                photo.getFileSize().toString() :
+                                "")
                     .collect(Collectors.joining());
             return checkHashForBlacklist(hash, userId, chatId, messageId);
         }
