@@ -119,6 +119,7 @@ public class TelegramMessageHandler extends ATelegramBot {
                             } else if (action.equals(FeedbackAction.WHITELIST.getAction())) {
                                 tgUserRepository.save(new TGUser(feedback.getUserId(), 0, true));
                             }
+                            feedbackRepository.delete(feedback);
                         });
                     }
                     execute(new DeleteMessage(verification, query.getMessage().getMessageId()));
