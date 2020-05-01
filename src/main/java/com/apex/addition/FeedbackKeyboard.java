@@ -35,7 +35,8 @@ public class FeedbackKeyboard {
         message.setChatId(verification);
         message.setText("This Post was shared");
 
-        feedbackRepository.save(new Feedback(userId, chatId, data));
+        final Feedback f = new Feedback(userId, chatId, data);
+        feedbackRepository.save(f);
         final Optional<Feedback> feedbackOpt = feedbackRepository.findFirstByUserId(userId);
         long id = 0L;
         if(feedbackOpt.isPresent()){

@@ -33,8 +33,7 @@ import com.apex.repository.IBlackListRepository;
 import com.apex.repository.IFeedbackRepository;
 import com.apex.repository.ITGUserRepository;
 import com.apex.strategy.CommandStrategy;
-import com.apex.strategy.DeleteFileStrategy;
-import com.apex.strategy.DeleteLinksStrategy;
+import com.apex.strategy.DeleteStrategy;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -75,10 +74,7 @@ public class TelegramMessageHandler extends ATelegramBot {
     private IBlackListRepository blackListRepository;
 
     @Autowired
-    private DeleteFileStrategy deleteFile;
-
-    @Autowired
-    private DeleteLinksStrategy deleteLinks;
+    private DeleteStrategy deleteLinks;
 
     @Autowired
     private CommandStrategy runCommand;
@@ -97,8 +93,7 @@ public class TelegramMessageHandler extends ATelegramBot {
                 try {
                     final CallbackQuery query = update.getCallbackQuery();
                     final String callbackData = query.getData();
-                    if (callbackData != null && !callbackData.equals(FeedbackAction.IGNORE.getAction())) {
-
+                    if (callbackData != null) {
                         final String[] arg = callbackData.split(",");
                         final String action = arg[0];
                         final long feedbackId = Long.parseLong(arg[1]);
@@ -114,10 +109,13 @@ public class TelegramMessageHandler extends ATelegramBot {
                                     ban.setUntilDate(new BigDecimal(Instant.now().getEpochSecond()).intValue());
                                     execute(ban);
                                 } catch (Exception e) {
-                                    log.info("Cant ban User!");
+                                    log.info("Cant ban User with id " + feedback.getUserId());
                                 }
                             } else if (action.equals(FeedbackAction.WHITELIST.getAction())) {
                                 tgUserRepository.save(new TGUser(feedback.getUserId(), 0, true));
+                                log.info("Whitelist user with id " + feedback.getUserId());
+                            } else if (callbackData.equals(FeedbackAction.IGNORE.getAction())){
+                                log.info("Ignore feedback");
                             }
                             feedbackRepository.delete(feedback);
                         });
@@ -142,12 +140,7 @@ public class TelegramMessageHandler extends ATelegramBot {
                         if (update.hasMessage()) {
                             commands.addAll(runCommand.runStrategy(update));
                         }
-                    }
-
-                    if (!whitelist.contains(fromUser)) {
-                        if (update.getMessage().hasDocument()) {
-                            commands.addAll(deleteFile.runStrategy(update));
-                        }
+                    } else {
                         commands.addAll(deleteLinks.runStrategy(update));
                     }
 
@@ -156,10 +149,9 @@ public class TelegramMessageHandler extends ATelegramBot {
                             execute(command);
                         } catch (TelegramApiException e) {}
                     });
+
                 }
-
             }
-
         } catch (Exception e) {
             log.info("Got an unknown message. Ignore");
         }

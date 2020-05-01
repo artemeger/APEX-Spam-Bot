@@ -43,7 +43,6 @@ The following commands can be used as a reply to a any user post:
 - !unmute - unmutes muted user
 - !unban - unbans banned user
 - !trust - allows monitored new member to post links and images before the 10 day period is up
-- !delete - used for scam images (for example containing QR codes), deletes image and teaches the Bot to remember it, any other user posting the image will be autobanned
 
 The commands are flexible, can be part of a sentence and can also be contained within a word. Examples:
 - "Sorry mate, we've been over this - consider yourself !warned"

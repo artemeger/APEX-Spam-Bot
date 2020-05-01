@@ -44,9 +44,10 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
+import java.util.zip.CRC32;
 
 @Component
-public class DeleteLinksStrategy implements IStrategy {
+public class DeleteStrategy implements IStrategy {
 
     @Autowired
     private IFeedbackRepository feedbackRepository;
@@ -60,6 +61,12 @@ public class DeleteLinksStrategy implements IStrategy {
     @Value("${bot.verification}")
     private long verification;
 
+    @Value("${bot.mimetypes}")
+    private List<String> mimeTypes;
+
+    @Value("${bot.filenames}")
+    private List<String> fileNames;
+
     @Override
     public ArrayList<BotApiMethod> runStrategy(Update update) {
 
@@ -67,9 +74,6 @@ public class DeleteLinksStrategy implements IStrategy {
         final int userId = update.getMessage().getFrom().getId();
         final long chatId = update.getMessage().getChatId();
         final int messageId = update.getMessage().getMessageId();
-        final String website = update.getMessage().getConnectedWebsite();
-        final User fromUser = update.getMessage().getForwardFrom();
-        final Chat fromChat = update.getMessage().getForwardFromChat();
         final List<MessageEntity> msgList = update.getMessage().getEntities();
 
         final Optional<TGUser> userOpt = tgUserRepository.findById(userId);
@@ -78,72 +82,65 @@ public class DeleteLinksStrategy implements IStrategy {
         }
 
         if (update.getMessage().hasDocument()) {
-            if (update.getMessage().getDocument().getMimeType().equals("image/gif") ||
-                update.getMessage().getDocument().getMimeType().equals("video/mp4")) {
+            final Document doc = update.getMessage().getDocument();
+            final String mimeType = doc.getMimeType();
+            final String fileName = doc.getFileName();
+            if (mimeTypes.contains(mimeType) &&
+                    fileNames.contains(fileName.substring(fileName.indexOf(".") + 1).trim())) {
                 return result;
+            } else {
+                final String hash = doc.getFileId() + doc.getFileName() +
+                        doc.getMimeType() + doc.getFileSize().toString();
+                return checkHashForBlacklist(hash, userId, chatId, messageId);
             }
         }
 
         if(update.getMessage().hasPhoto()) {
-            final String hash = update.getMessage().getReplyToMessage().getPhoto().stream()
-                    .map(photo -> photo.getHeight().toString()
-                            + photo.getWidth().toString()
-                            + photo.getFileId())
+            final String hash = update.getMessage().getPhoto().stream()
+                    .map(photo -> photo.getWidth().toString() +
+                                photo.getHeight().toString() +
+                                photo.getFileSize().toString())
                     .collect(Collectors.joining());
-            final Optional<Blacklist> blacklistOpt = blackListRepository.findFirstByHash(hash);
-            if(!blacklistOpt.isPresent()){
-                result.add(new ForwardMessage(verification, chatId, messageId));
-                result.add(new FeedbackKeyboard(userId, chatId, verification, hash, feedbackRepository).getBanKeyboard());
-            }
-            result.add(new DeleteMessage(chatId, update.getMessage().getMessageId()));
-            return result;
+            return checkHashForBlacklist(hash, userId, chatId, messageId);
         }
-
-        boolean hasLink = false;
-        String link = "";
 
         if(msgList != null){
             for (MessageEntity ent : msgList){
                 if(ent.getType().contains("link") || ent.getType().contains("url")) {
-                    hasLink = true;
+                    String link = "";
                     if(ent.getText() != null) link = ent.getText();
                     if(ent.getUrl() != null) link = ent.getUrl();
-                    final Optional<Blacklist> blacklistOpt = blackListRepository.findFirstByHash(link);
-                    if(blacklistOpt.isPresent()){
-                        KickChatMember ban = new KickChatMember();
-                        ban.setUserId(userId);
-                        ban.setChatId(chatId);
-                        ban.setUntilDate(new BigDecimal(Instant.now().getEpochSecond()).intValue());
-                        result.add(ban);
-                        result.add(new DeleteMessage(chatId, messageId));
-                        return result;
-                    }
+                    if(!link.equals("")) return checkHashForBlacklist(link, userId, chatId, messageId);
                 }
             }
-        }
-
-        if(hasLink || update.getMessage().hasPhoto()){
-            if(!link.equals("")) {
-                result.add(new ForwardMessage(verification, chatId, messageId));
-                result.add(new FeedbackKeyboard(userId, chatId, verification, link, feedbackRepository).getBanKeyboard());
-            }
-            result.add(new DeleteMessage(chatId, update.getMessage().getMessageId()));
-            return result;
-        }
-
-        if(website != null || fromUser != null || fromChat != null || update.getMessage().hasDocument()) {
-            if(update.getMessage().hasDocument() || update.getMessage().hasPhoto()){
-                if((update.getMessage().getCaption()!= null && update.getMessage().getCaption().contains("@")) ||
-                        (update.getMessage().getText() != null && update.getMessage().getText().contains("@"))) {
-                    result.add(new ForwardMessage(verification, chatId, messageId));
-                    result.add(new FeedbackKeyboard(userId, chatId,verification, "", feedbackRepository).getBanKeyboard());
-                }
-            }
-            result.add(new DeleteMessage(chatId, messageId));
         }
 
         return result;
+    }
 
+    private ArrayList<BotApiMethod> checkHashForBlacklist(final String data, final int userId,
+                                                          final long chatId, final int messageId){
+        final ArrayList<BotApiMethod> result = new ArrayList<>();
+        final CRC32 crc32 = new CRC32();
+        crc32.update(data.getBytes());
+        final String hash = String.valueOf(crc32.getValue());
+        final Optional<Blacklist> blacklistOpt = blackListRepository.findFirstByHash(hash);
+        if(blacklistOpt.isEmpty()){
+            result.add(new ForwardMessage(verification, chatId, messageId));
+            result.add(new FeedbackKeyboard(userId, chatId, verification, hash, feedbackRepository).getBanKeyboard());
+        } else {
+            result.add(getBan(userId, chatId));
+        }
+        result.add(new DeleteMessage(chatId, messageId));
+        return result;
+    }
+
+    private KickChatMember getBan(final int userId, final long chatId){
+        KickChatMember ban = new KickChatMember();
+        ban.setUserId(userId);
+        ban.setChatId(chatId);
+        ban.setUntilDate(new BigDecimal(Instant.now().getEpochSecond()).intValue());
+        return ban;
     }
 
 }

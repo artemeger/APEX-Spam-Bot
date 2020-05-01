@@ -24,7 +24,6 @@
 
 package com.apex.strategy;
 
-import com.apex.entities.Blacklist;
 import com.apex.entities.TGUser;
 import com.apex.repository.IBlackListRepository;
 import com.apex.repository.ITGUserRepository;
@@ -38,12 +37,10 @@ import org.telegram.telegrambots.meta.api.methods.groupadministration.KickChatMe
 import org.telegram.telegrambots.meta.api.methods.groupadministration.RestrictChatMember;
 import org.telegram.telegrambots.meta.api.methods.groupadministration.UnbanChatMember;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
-import org.telegram.telegrambots.meta.api.methods.updatingmessages.DeleteMessage;
 import org.telegram.telegrambots.meta.api.objects.Update;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.ArrayList;
-import java.util.stream.Collectors;
 
 @Component
 public class CommandStrategy implements IStrategy {
@@ -142,21 +139,6 @@ public class CommandStrategy implements IStrategy {
                             tgUserRepository.save(user);
                         }, () -> tgUserRepository.save(new TGUser(userId, 0, true)));
                         log.info("User " + userName + " was trusted");
-                } else if (messageText.contains("!delete")) {
-                        if (update.getMessage().getReplyToMessage().hasPhoto()) {
-                            final String uniqueId = update.getMessage().getReplyToMessage().getPhoto().stream()
-                                    .map(photo -> photo.getHeight().toString()
-                                            + photo.getWidth().toString()
-                                            + photo.getFileId())
-                                    .collect(Collectors.joining());
-                            blackListRepository.save(new Blacklist(uniqueId));
-                            tgUserRepository.findById(userId).ifPresentOrElse(user -> {
-                                user.setTrusted(false);
-                                tgUserRepository.save(user);
-                            }, () -> tgUserRepository.save(new TGUser(userId, 0, false)));
-                        }
-                        result.add(new DeleteMessage(chatId, update.getMessage().getReplyToMessage().getMessageId()));
-                        result.add(new DeleteMessage(chatId, update.getMessage().getMessageId()));
                 }
             }
         } catch (NullPointerException e) {}
