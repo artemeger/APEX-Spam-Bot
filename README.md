@@ -17,21 +17,25 @@ Example: https://api.telegram.org/bot123456789:jbd78sadvbdy63d37gda37bd8/getUpda
 4) Add chat id for bot.chat parameter
 
 # Installation
-Clone this Repository and change dir inside
+Clone this Repository and change dir to inside the cloned repository
 # Run
 mvn spring-boot:run
 # Java version
 Open JDK 11
 # Commands
-The following is forwarded from new user posts to the Bot Chat for review to ban poster on suspicion of intent to scam:
+The following are forwarded from new user posts to the Bot Chat for review to ban or whitelist the user posting:
 - Links
-- Posts with both images and a TG handle (@...)
+- Images
 - Files
+
+When a user is whitelisted, he/she can post the above (links/images/files) unless another bot og group wide settings prohibit this.
+
+Bulk whitelisting - To avoid unnecessary post deletion and quickly whitelist regular users in the chat after initializing the bot, do the following:
+- Forward a post from the user you want to whitelist to the Bot Chat. The bot will then instantly whitelist the user.
+- This can also be done in bulk (ie forward 50 posts from different users to Bot Chat to whitelist all those users).
+- If a user has previously been added to the bot database (for example due to being !warned, see below) this method will not work - use the !trust command (see below) in these instances.
 
 If links are manually confirmed in the Bot Chat as scam links, the Bot will autodelete and ban any other users posting the same link
-
-The following is permanently restricted from all users except admins:
-- Files
 
 The following commands can be used as a reply to a any user post:
 - !warn - warns user (count of 3, bans user on third warn)
