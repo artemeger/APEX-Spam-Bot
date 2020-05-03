@@ -61,7 +61,7 @@ public class FeedbackKeyboard {
         List<InlineKeyboardButton> row3 = new ArrayList<>();
         InlineKeyboardButton button3 = new InlineKeyboardButton();
         button3.setText("Ignore");
-        button3.setCallbackData(FeedbackAction.IGNORE.getAction());
+        button3.setCallbackData(FeedbackAction.IGNORE.getAction() + ",0");
         row3.add(button3);
 
         keyboard.add(row1);

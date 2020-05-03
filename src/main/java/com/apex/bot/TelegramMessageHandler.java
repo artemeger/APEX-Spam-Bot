@@ -34,13 +34,14 @@ import com.apex.repository.IFeedbackRepository;
 import com.apex.repository.ITGUserRepository;
 import com.apex.strategy.CommandStrategy;
 import com.apex.strategy.DeleteStrategy;
+import com.apex.strategy.WhitelistStrategy;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.telegram.telegrambots.meta.api.methods.BotApiMethod;
-import org.telegram.telegrambots.meta.api.methods.groupadministration.KickChatMember;
+import org.telegram.telegrambots.meta.api.methods.groupadministration.*;
 import org.telegram.telegrambots.meta.api.methods.updatingmessages.DeleteMessage;
 import org.telegram.telegrambots.meta.api.objects.CallbackQuery;
 import org.telegram.telegrambots.meta.api.objects.Update;
@@ -80,6 +81,9 @@ public class TelegramMessageHandler extends ATelegramBot {
     private CommandStrategy runCommand;
 
     @Autowired
+    private WhitelistStrategy whitelistStrategy;
+
+    @Autowired
     public TelegramMessageHandler(@Value("${bot.token}") String botToken, @Value("${bot.name}") String botName) {
         super(botToken, botName);
     }
@@ -88,7 +92,6 @@ public class TelegramMessageHandler extends ATelegramBot {
     public void onUpdateReceived(Update update) {
 
         try {
-
             if (update.hasCallbackQuery()) {
                 try {
                     final CallbackQuery query = update.getCallbackQuery();
@@ -132,7 +135,9 @@ public class TelegramMessageHandler extends ATelegramBot {
                 final long chatId = update.getMessage().getChatId();
                 final int fromUser = update.getMessage().getFrom().getId();
 
-                if (chat.contains(chatId)) {
+                if (verification == chatId && whitelist.contains(fromUser)) {
+                    whitelistStrategy.runStrategy(update);
+                } else if (chat.contains(chatId)) {
 
                     final ArrayList<BotApiMethod> commands = new ArrayList<>();
 
@@ -147,9 +152,10 @@ public class TelegramMessageHandler extends ATelegramBot {
                     commands.forEach(command -> {
                         try {
                             execute(command);
-                        } catch (TelegramApiException e) {}
+                        } catch (TelegramApiException e) {
+                            log.info("Telegram API Exception on execute");
+                        }
                     });
-
                 }
             }
         } catch (Exception e) {
