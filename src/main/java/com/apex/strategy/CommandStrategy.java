@@ -25,7 +25,6 @@
 package com.apex.strategy;
 
 import com.apex.entities.TGUser;
-import com.apex.repository.IBlackListRepository;
 import com.apex.repository.ITGUserRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -49,9 +48,6 @@ public class CommandStrategy implements IStrategy {
 
     @Autowired
     private ITGUserRepository tgUserRepository;
-
-    @Autowired
-    private IBlackListRepository blackListRepository;
 
     @Value("${first.warning}")
     private String firstWarning;
@@ -141,7 +137,9 @@ public class CommandStrategy implements IStrategy {
                         log.info("User " + userName + " was trusted");
                 }
             }
-        } catch (NullPointerException e) {}
+        } catch (NullPointerException e) {
+            log.info("Had a Nullpointer in CommandStrategy");
+        }
         return result;
     }
 
