@@ -116,6 +116,9 @@ public class DeleteStrategy implements IStrategy {
                     if(ent.getUrl() != null) link = ent.getUrl();
                     if(!link.equals("")) return checkHashForBlacklist(link, userId, chatId, messageId);
                 }
+                if(ent.getType().contains("mention")) {
+                    return checkHashForBlacklist(String.valueOf(messageId), userId, chatId, messageId);
+                }
             }
         }
 
