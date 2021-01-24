@@ -24,30 +24,19 @@
 
 package com.apex.strategy;
 
-import com.apex.entities.TGUser;
-import com.apex.repository.ITGUserRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import org.telegram.telegrambots.meta.api.methods.BotApiMethod;
-import org.telegram.telegrambots.meta.api.methods.groupadministration.KickChatMember;
-import org.telegram.telegrambots.meta.api.methods.groupadministration.RestrictChatMember;
-import org.telegram.telegrambots.meta.api.methods.groupadministration.UnbanChatMember;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
 import org.telegram.telegrambots.meta.api.objects.Update;
-import java.math.BigDecimal;
-import java.time.Instant;
 import java.util.ArrayList;
 
 @Component
 public class InfoStrategy implements IStrategy {
 
     private final Logger log = LoggerFactory.getLogger(this.getClass());
-
-    @Autowired
-    private ITGUserRepository tgUserRepository;
 
     @Value("${promo}")
     private String promo;
@@ -61,26 +50,16 @@ public class InfoStrategy implements IStrategy {
         final ArrayList<BotApiMethod> result = new ArrayList<>();
         try {
             if (update.hasMessage()) {
-
                 final String messageText = update.getMessage().getText();
-                final int userId = update.getMessage().getReplyToMessage().getFrom().getId();
-                final long chatId = update.getMessage().getChatId();
                 final String userName = update.getMessage().getReplyToMessage().getFrom().getFirstName();
-
+                final SendMessage msg = new SendMessage();
+                msg.setChatId(update.getMessage().getChatId());
                 if (messageText.contains("#promo")) {
-                        tgUserRepository.findById(userId).ifPresent(user -> {
-                            final SendMessage msg = new SendMessage();
-                            msg.setChatId(update.getMessage().getChatId());
-                            msg.setText("Hey there, " + userName + promo);
-                            result.add(msg);
-                        });
+                    msg.setText("Hey there, " + userName + promo);
+                    result.add(msg);
                 } else if (messageText.contains("#nextcommand")) {
-                        tgUserRepository.findById(userId).ifPresent(user -> {
-                            final SendMessage msg = new SendMessage();
-                            msg.setChatId(update.getMessage().getChatId());
-                            msg.setText("Hey there, " + userName + nextCommand);
-                            result.add(msg);
-                        });
+                    msg.setText("Hey there, " + userName + nextCommand);
+                    result.add(msg);
                 }
             }
         } catch (NullPointerException e) {
@@ -88,13 +67,4 @@ public class InfoStrategy implements IStrategy {
         }
         return result;
     }
-
-    private BotApiMethod banUser(int userId, long chatId){
-        KickChatMember ban = new KickChatMember();
-        ban.setUserId(userId);
-        ban.setChatId(chatId);
-        ban.setUntilDate(new BigDecimal(Instant.now().getEpochSecond() + 864000).intValueExact());
-        return ban;
-    }
-
 }

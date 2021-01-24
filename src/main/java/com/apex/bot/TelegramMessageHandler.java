@@ -143,16 +143,14 @@ public class TelegramMessageHandler extends ATelegramBot {
                     whitelistStrategy.runStrategy(update);
                 } else if (chat.contains(chatId)) {
 
-                    final ArrayList<BotApiMethod> commands = new ArrayList<>();
+                    final ArrayList<BotApiMethod> commands = new ArrayList<>(infoCommand.runStrategy(update));
 
                     if (whitelist.contains(fromUser)) {
                         if (update.hasMessage()) {
                             commands.addAll(runCommand.runStrategy(update));
-                            commands.addAll(infoCommand.runStrategy(update));
                         }
                     } else {
                         commands.addAll(deleteLinks.runStrategy(update));
-                        commands.addAll(infoCommand.runStrategy(update));
                     }
 
                     commands.forEach(command -> {
