@@ -33,6 +33,8 @@ import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
 import org.telegram.telegrambots.meta.api.objects.Update;
 import java.util.ArrayList;
 
+import static java.lang.String.format;
+
 @Component
 public class InfoStrategy implements IStrategy {
 
@@ -55,10 +57,10 @@ public class InfoStrategy implements IStrategy {
                 final SendMessage msg = new SendMessage();
                 msg.setChatId(update.getMessage().getChatId());
                 if (messageText.contains("#promo")) {
-                    msg.setText("Hey there, " + userName + promo);
+                    msg.setText(format("Hey there, %s %s", userName, promo));
                     result.add(msg);
                 } else if (messageText.contains("#nextcommand")) {
-                    msg.setText("Hey there, " + userName + nextCommand);
+                    msg.setText(format("Hey there, %s %s", userName, nextCommand));
                     result.add(msg);
                 }
             }
