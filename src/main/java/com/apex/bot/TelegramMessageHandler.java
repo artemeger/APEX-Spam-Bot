@@ -33,6 +33,7 @@ import com.apex.repository.IBlackListRepository;
 import com.apex.repository.IFeedbackRepository;
 import com.apex.repository.ITGUserRepository;
 import com.apex.strategy.CommandStrategy;
+import com.apex.strategy.InfoStrategy;
 import com.apex.strategy.DeleteStrategy;
 import com.apex.strategy.WhitelistStrategy;
 import org.slf4j.Logger;
@@ -79,6 +80,9 @@ public class TelegramMessageHandler extends ATelegramBot {
 
     @Autowired
     private CommandStrategy runCommand;
+
+    @Autowired
+    private InfoStrategy infoCommand;
 
     @Autowired
     private WhitelistStrategy whitelistStrategy;
@@ -144,9 +148,11 @@ public class TelegramMessageHandler extends ATelegramBot {
                     if (whitelist.contains(fromUser)) {
                         if (update.hasMessage()) {
                             commands.addAll(runCommand.runStrategy(update));
+                            commands.addAll(infoCommand.runStrategy(update));
                         }
                     } else {
                         commands.addAll(deleteLinks.runStrategy(update));
+                        commands.addAll(infoCommand.runStrategy(update));
                     }
 
                     commands.forEach(command -> {
