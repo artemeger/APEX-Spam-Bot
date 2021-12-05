@@ -24,7 +24,7 @@ public class WhitelistStrategy implements IStrategy {
     public ArrayList<BotApiMethod> runStrategy(Update update) {
         final User userToWhitelist = update.getMessage().getForwardFrom();
         if(userToWhitelist != null) {
-            final int userId = userToWhitelist.getId();
+            final long userId = userToWhitelist.getId();
             tgUserRepository.findById(userId).ifPresentOrElse(
                     user -> log.info("User is already known. Ignore"),
                     () -> {

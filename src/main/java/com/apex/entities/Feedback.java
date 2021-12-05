@@ -9,7 +9,7 @@ public class Feedback {
 
     }
 
-    public Feedback(final int userId, final long chatId, final String data) {
+    public Feedback(final long userId, final long chatId, final String data) {
         this.userId = userId;
         this.chatId = chatId;
         this.data = data;
@@ -19,7 +19,7 @@ public class Feedback {
     @GeneratedValue(strategy = GenerationType.AUTO)
     private long feedbackId;
 
-    private int userId;
+    private long userId;
 
     private long chatId;
 
@@ -33,11 +33,11 @@ public class Feedback {
         this.feedbackId = feedbackId;
     }
 
-    public int getUserId() {
+    public long getUserId() {
         return userId;
     }
 
-    public void setUserId(int userId) {
+    public void setUserId(long userId) {
         this.userId = userId;
     }
 

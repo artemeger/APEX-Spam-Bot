@@ -8,24 +8,24 @@ public class TGUser {
 
     public TGUser(){}
 
-    public TGUser(final int userId, final int count, final boolean trusted) {
+    public TGUser(final long userId, final int count, final boolean trusted) {
         this.userId = userId;
         this.count = count;
         this.trusted = trusted;
     }
 
     @Id
-    private int userId;
+    private long userId;
 
     private int count;
 
     private boolean trusted;
 
-    public int getUserId() {
+    public long getUserId() {
         return userId;
     }
 
-    public void setUserId(int userId) {
+    public void setUserId(long userId) {
         this.userId = userId;
     }
 

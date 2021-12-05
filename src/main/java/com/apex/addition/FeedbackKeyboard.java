@@ -13,7 +13,7 @@ public class FeedbackKeyboard {
 
     private final IFeedbackRepository feedbackRepository;
 
-    private final int userId;
+    private final long userId;
 
     private final long chatId;
 
@@ -21,7 +21,7 @@ public class FeedbackKeyboard {
 
     private final String data;
 
-    public FeedbackKeyboard(final int userId, final long chatId, final long verification,
+    public FeedbackKeyboard(final long userId, final long chatId, final long verification,
                             final String data, final IFeedbackRepository feedbackRepository){
         this.feedbackRepository = feedbackRepository;
         this.userId = userId;
@@ -32,7 +32,7 @@ public class FeedbackKeyboard {
 
     public BotApiMethod getBanKeyboard() {
         SendMessage message = new SendMessage();
-        message.setChatId(verification);
+        message.setChatId(String.valueOf(verification));
         message.setText("This Post was shared");
 
         final Feedback f = new Feedback(userId, chatId, data);

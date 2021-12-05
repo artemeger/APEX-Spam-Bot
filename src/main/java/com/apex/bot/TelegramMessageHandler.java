@@ -61,7 +61,7 @@ public class TelegramMessageHandler extends ATelegramBot {
     private long verification;
 
     @Value("${bot.whitelist}")
-    private List<Integer> whitelist;
+    private List<Long> whitelist;
 
     @Value("${bot.chat}")
     private List<Long> chat;
@@ -112,7 +112,7 @@ public class TelegramMessageHandler extends ATelegramBot {
                                 try {
                                     KickChatMember ban = new KickChatMember();
                                     ban.setUserId(feedback.getUserId());
-                                    ban.setChatId(feedback.getChatId());
+                                    ban.setChatId(String.valueOf(feedback.getChatId()));
                                     ban.setUntilDate(new BigDecimal(Instant.now().getEpochSecond()).intValue());
                                     execute(ban);
                                 } catch (Exception e) {
@@ -127,7 +127,7 @@ public class TelegramMessageHandler extends ATelegramBot {
                             feedbackRepository.delete(feedback);
                         });
                     }
-                    execute(new DeleteMessage(verification, query.getMessage().getMessageId()));
+                    execute(new DeleteMessage(String.valueOf(verification), query.getMessage().getMessageId()));
                 } catch (Exception e) {
                     log.error("Error in Callback");
                     log.error(e.getMessage());
@@ -137,7 +137,7 @@ public class TelegramMessageHandler extends ATelegramBot {
             if (update.getMessage() != null) {
 
                 final long chatId = update.getMessage().getChatId();
-                final int fromUser = update.getMessage().getFrom().getId();
+                final long fromUser = update.getMessage().getFrom().getId();
 
                 if (verification == chatId && whitelist.contains(fromUser)) {
                     whitelistStrategy.runStrategy(update);

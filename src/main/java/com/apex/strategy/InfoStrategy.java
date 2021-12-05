@@ -55,7 +55,7 @@ public class InfoStrategy implements IStrategy {
                 final String messageText = update.getMessage().getText();
                 final String userName = update.getMessage().getReplyToMessage().getFrom().getFirstName();
                 final SendMessage msg = new SendMessage();
-                msg.setChatId(update.getMessage().getChatId());
+                msg.setChatId(String.valueOf(update.getMessage().getChatId()));
                 if (messageText.contains("#promo")) {
                     msg.setText(format("Hey there, %s %s", userName, promo));
                     result.add(msg);

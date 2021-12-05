@@ -36,6 +36,7 @@ import org.telegram.telegrambots.meta.api.methods.groupadministration.KickChatMe
 import org.telegram.telegrambots.meta.api.methods.groupadministration.RestrictChatMember;
 import org.telegram.telegrambots.meta.api.methods.groupadministration.UnbanChatMember;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
+import org.telegram.telegrambots.meta.api.objects.ChatPermissions;
 import org.telegram.telegrambots.meta.api.objects.Update;
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -66,15 +67,15 @@ public class CommandStrategy implements IStrategy {
             if (update.hasMessage()) {
 
                 final String messageText = update.getMessage().getText();
-                final int userId = update.getMessage().getReplyToMessage().getFrom().getId();
-                final long chatId = update.getMessage().getChatId();
+                final long userId = update.getMessage().getReplyToMessage().getFrom().getId();
+                final String chatId = String.valueOf(update.getMessage().getChatId());
                 final String userName = update.getMessage().getReplyToMessage().getFrom().getFirstName();
 
                 if (messageText.contains("!forgive")) {
                         tgUserRepository.findById(userId).ifPresent(user -> {
                             tgUserRepository.delete(user);
                             final SendMessage msg = new SendMessage();
-                            msg.setChatId(update.getMessage().getChatId());
+                            msg.setChatId(chatId);
                             msg.setText("All is forgiven, " + userName + ", I love you! (again)");
                             result.add(msg);
                             log.info("User " + userName + " was forgiven");
@@ -107,20 +108,24 @@ public class CommandStrategy implements IStrategy {
                         mute.setUserId(userId);
                         mute.setChatId(chatId);
                         mute.setUntilDate(new BigDecimal(timeToMute).intValueExact());
-                        mute.setCanAddWebPagePreviews(false);
-                        mute.setCanSendMessages(false);
-                        mute.setCanSendMediaMessages(false);
-                        mute.setCanSendOtherMessages(false);
+                        ChatPermissions chatPermissions = new ChatPermissions();
+                        chatPermissions.setCanAddWebPagePreviews(false);
+                        chatPermissions.setCanSendMessages(false);
+                        chatPermissions.setCanSendMediaMessages(false);
+                        chatPermissions.setCanSendOtherMessages(false);
+                        mute.setPermissions(chatPermissions);
                         log.info("User " + userName + " was muted");
                         result.add(mute);
                 } else if (messageText.contains("!unmute")) {
                         RestrictChatMember unmute = new RestrictChatMember();
                         unmute.setUserId(userId);
                         unmute.setChatId(chatId);
-                        unmute.setCanAddWebPagePreviews(true);
-                        unmute.setCanSendMessages(true);
-                        unmute.setCanSendMediaMessages(true);
-                        unmute.setCanSendOtherMessages(true);
+                        ChatPermissions chatPermissions = new ChatPermissions();
+                        chatPermissions.setCanAddWebPagePreviews(true);
+                        chatPermissions.setCanSendMessages(true);
+                        chatPermissions.setCanSendMediaMessages(true);
+                        chatPermissions.setCanSendOtherMessages(true);
+                        unmute.setPermissions(chatPermissions);
                         log.info("User " + userName + " was unmuted");
                         result.add(unmute);
                 } else if (messageText.contains("!unban")) {
@@ -143,7 +148,7 @@ public class CommandStrategy implements IStrategy {
         return result;
     }
 
-    private BotApiMethod banUser(int userId, long chatId){
+    private BotApiMethod banUser(long userId, String chatId){
         KickChatMember ban = new KickChatMember();
         ban.setUserId(userId);
         ban.setChatId(chatId);

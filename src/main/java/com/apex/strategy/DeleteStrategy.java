@@ -71,8 +71,8 @@ public class DeleteStrategy implements IStrategy {
     public ArrayList<BotApiMethod> runStrategy(Update update) {
 
         final ArrayList<BotApiMethod> result = new ArrayList<>();
-        final int userId = update.getMessage().getFrom().getId();
-        final long chatId = update.getMessage().getChatId();
+        final long userId = update.getMessage().getFrom().getId();
+        final String chatId = String.valueOf(update.getMessage().getChatId());
         final int messageId = update.getMessage().getMessageId();
         final List<MessageEntity> msgList = update.getMessage().getEntities();
 
@@ -125,16 +125,16 @@ public class DeleteStrategy implements IStrategy {
         return result;
     }
 
-    private ArrayList<BotApiMethod> checkHashForBlacklist(final String data, final int userId,
-                                                          final long chatId, final int messageId){
+    private ArrayList<BotApiMethod> checkHashForBlacklist(final String data, final long userId,
+                                                          final String chatId, final int messageId){
         final ArrayList<BotApiMethod> result = new ArrayList<>();
         final CRC32 crc32 = new CRC32();
         crc32.update(data.getBytes());
         final String hash = String.valueOf(crc32.getValue());
         final Optional<Blacklist> blacklistOpt = blackListRepository.findFirstByHash(hash);
         if(blacklistOpt.isEmpty()){
-            result.add(new ForwardMessage(verification, chatId, messageId));
-            result.add(new FeedbackKeyboard(userId, chatId, verification, hash, feedbackRepository).getBanKeyboard());
+            result.add(new ForwardMessage(String.valueOf(verification), chatId, messageId));
+            result.add(new FeedbackKeyboard(userId, Long.parseLong(chatId), verification, hash, feedbackRepository).getBanKeyboard());
         } else {
             result.add(getBan(userId, chatId));
         }
@@ -142,7 +142,7 @@ public class DeleteStrategy implements IStrategy {
         return result;
     }
 
-    private KickChatMember getBan(final int userId, final long chatId){
+    private KickChatMember getBan(final long userId, final String chatId){
         KickChatMember ban = new KickChatMember();
         ban.setUserId(userId);
         ban.setChatId(chatId);

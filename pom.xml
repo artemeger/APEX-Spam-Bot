@@ -32,7 +32,7 @@
     </build>
 
     <properties>
-        <telegram.bot.version>4.1</telegram.bot.version>
+        <telegram.bot.version>5.4.0.1</telegram.bot.version>
         <logback.version>1.2.3</logback.version>
         <h2.version>1.4.200</h2.version>
     </properties>

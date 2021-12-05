@@ -6,5 +6,5 @@ import org.springframework.data.repository.CrudRepository;
 import java.util.Optional;
 
 public interface IFeedbackRepository extends CrudRepository<Feedback, Long> {
-    public Optional<Feedback> findFirstByUserId(final int userId);
+    public Optional<Feedback> findFirstByUserId(final long userId);
 }
