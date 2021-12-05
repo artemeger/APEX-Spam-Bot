@@ -32,6 +32,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import org.telegram.telegrambots.meta.api.methods.BotApiMethod;
+import org.telegram.telegrambots.meta.api.methods.groupadministration.BanChatMember;
 import org.telegram.telegrambots.meta.api.methods.groupadministration.KickChatMember;
 import org.telegram.telegrambots.meta.api.methods.groupadministration.RestrictChatMember;
 import org.telegram.telegrambots.meta.api.methods.groupadministration.UnbanChatMember;
@@ -148,11 +149,11 @@ public class CommandStrategy implements IStrategy {
         return result;
     }
 
-    private BotApiMethod banUser(long userId, String chatId){
-        KickChatMember ban = new KickChatMember();
+    private BanChatMember banUser(final long userId, final String chatId){
+        BanChatMember ban = new BanChatMember(chatId, userId, new BigDecimal(Instant.now().getEpochSecond()).intValue(), false);
         ban.setUserId(userId);
         ban.setChatId(chatId);
-        ban.setUntilDate(new BigDecimal(Instant.now().getEpochSecond() + 864000).intValueExact());
+        ban.setUntilDate(new BigDecimal(Instant.now().getEpochSecond()).intValue());
         return ban;
     }
 

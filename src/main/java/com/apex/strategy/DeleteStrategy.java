@@ -35,6 +35,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import org.telegram.telegrambots.meta.api.methods.BotApiMethod;
 import org.telegram.telegrambots.meta.api.methods.ForwardMessage;
+import org.telegram.telegrambots.meta.api.methods.groupadministration.BanChatMember;
 import org.telegram.telegrambots.meta.api.methods.groupadministration.KickChatMember;
 import org.telegram.telegrambots.meta.api.methods.updatingmessages.DeleteMessage;
 import org.telegram.telegrambots.meta.api.objects.*;
@@ -142,8 +143,8 @@ public class DeleteStrategy implements IStrategy {
         return result;
     }
 
-    private KickChatMember getBan(final long userId, final String chatId){
-        KickChatMember ban = new KickChatMember();
+    private BanChatMember getBan(final long userId, final String chatId){
+        BanChatMember ban = new BanChatMember(chatId, userId, new BigDecimal(Instant.now().getEpochSecond()).intValue(), false);
         ban.setUserId(userId);
         ban.setChatId(chatId);
         ban.setUntilDate(new BigDecimal(Instant.now().getEpochSecond()).intValue());
